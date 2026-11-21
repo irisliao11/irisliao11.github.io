@@ -1,9 +1,8 @@
 .page {
     --cover: var(--main);
-    --paper: #fbfaf6;
-    --paper-edge: #f6f3eb;
-    --crease: #d6cfbb;
-    --crease-shade: #e6e0cf;
+    --dot-color: #b8c4d6;
+    --dot-size: 1.5px;
+    --dot-gap: 24px;
 
     position: relative;
     max-width: 1000px;
@@ -14,17 +13,20 @@
     border: 16px solid var(--cover);
     border-radius: 15px;
 
-    background-color: #fffdf8;
-    background-image: linear-gradient(
-        to right,
-        var(--paper-edge) 0%,
-        var(--paper) 44%,
-        var(--crease-shade) 49.5%,
-        var(--crease) 50%,
-        var(--crease-shade) 50.5%,
-        var(--paper) 56%,
-        var(--paper-edge) 100%
-    );
+    background-color: #fffdf6;
+    background-image:
+        linear-gradient(
+            to right,
+            transparent 44%,
+            rgba(0, 0, 0, 0.05) 49%,
+            rgba(0, 0, 0, 0.14) 50%,
+            rgba(0, 0, 0, 0.05) 51%,
+            transparent 56%
+        ),
+        radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+    background-size: 100% 100%, var(--dot-gap) var(--dot-gap);
+    background-position: 0 0, 12px 12px;
+
     box-shadow:
         inset 10px 0 8px -8px rgba(0, 0, 0, 0.25),
         inset -10px 0 8px -8px rgba(0, 0, 0, 0.25),
@@ -32,9 +34,15 @@
 }
 
 .page h2 {
+    display: inline-block;
     margin: 0 0 8px;
+    padding: 4px 18px;
+    background: var(--secondary);
+    color: var(--dark);
     line-height: 1.3;
     text-align: left;
+    transform: rotate(-2deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .page #board,
@@ -64,46 +72,46 @@
 
 @media (max-width: 700px) {
     .page {
-        background-image: none;
+        background-image:
+            radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+        background-size: var(--dot-gap) var(--dot-gap);
+        background-position: 12px 12px;
     }
     .page #board,
     .page .board {
         grid-template-columns: 1fr;
     }
 }
-/* ============ binder divider tabs (v2) ============ */
 
 .sidebar {
-  background: transparent;
-  border-right: none;
-  padding: 0;
-  width: 150px;                 /* just wide enough for the tabs */
+    background: transparent;
+    border-right: none;
+    padding: 0;
+    width: 150px;
 }
 
 .content {
-  padding-left: 0;
+    padding-left: 0;
 }
 
-/* book: flush left, paints OVER the tabs */
 .page {
-  margin: 0 0 60px 0 !important;   /* !important beats the earlier auto margin */
-  position: relative;
-  z-index: 1;
+    margin: 0 0 60px 0 !important;
+    position: relative;
+    z-index: 1;
 }
 
-/* the stack of dividers, lined up with the top of the book */
 #tabList {
-  align-items: flex-end;
-  gap: 10px;
-  margin-top: 180px;            /* adjust until the first tab sits level with the book's top */
-  margin-right: 0;
+    align-items: flex-end;
+    gap: 10px;
+    margin-top: 40px;
+    margin-right: -16px;
 }
 
 .tab {
     position: relative;
     z-index: 0;
     width: 130px;
-    margin-right: -16px;
+    margin-right: 0;
     padding: 14px 24px 14px 14px;
     border: 2px solid var(--dark);
     border-right: none;

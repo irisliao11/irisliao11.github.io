@@ -3,25 +3,25 @@
 <head>
   <title>time capsule</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="notebook.css">
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
+  <main class="content">
+    <h1>time capsule</h1>
+
+    <div class="topbar">
+      <input type="file" id="photo" accept="image/*">
+      <input type="text" id="caption" placeholder="Describe this memory">
+      <button id="add">add</button>
       <button id="newTab">+ new tab</button>
+    </div>
+
+    <div class="desk">
       <div id="tabList"></div>
-    </aside>
+      <div id="pages"></div>
+    </div>
+  </main>
 
-    <main class="content">
-      <h1 id="title">time capsule</h1>
-
-      <div class="topbar">
-        <input type="file" id="photo" accept="image/*">
-        <input type="text" id="caption" placeholder="Describe this memory">
-        <button id="add">add</button>
-      </div>
-      <div id="board"></div>
-    </main>
-  </div>
   <template id="pageTemplate">
     <h2>Moment</h2>
   </template>
