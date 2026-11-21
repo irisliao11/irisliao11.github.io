@@ -12,12 +12,16 @@
 - body:        2.5vh
 
 ## fonts
-- headings: something wild (I picked ____ because ____)
+- headings: something bold
 - body:     something calm and readable
 
-## story
-landing -> about me -> things I made -> say hi -> the end
+## layout
+- notebook pages
+- tabs for different moments
+- polaroids on each page w/ captions
+- add button on top
 
 ## motion + sound
 - sections fade up as they appear
 - one soft click on the "keep going" button, with a mute toggle
+- images hover
