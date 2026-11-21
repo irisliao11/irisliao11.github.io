@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Time Capsule</title>
-  <link rel="stylesheet" href="style.css">
+<head><title>Time Capsule</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="notebook.css">
 </head>
 <body>
-  <h1>Our Time Capsule</h1>
+    <h1>Our Time Capsule</h1>
 
     <div class="topbar">
         <input type="file" id="photo" accept="image/*">
@@ -13,8 +13,11 @@
         <button id="add">Add</button>
     </div>
 
-  <div id="board"></div>
+    <div class="page active">
+        <h2>Moment</h2>
+        <div id="board"></div>
+    </div>
 
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

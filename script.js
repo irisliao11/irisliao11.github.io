@@ -4,32 +4,29 @@ const addButton = document.getElementById("add");
 const board = document.getElementById("board");
 
 addButton.addEventListener("click", function () {
-  const file = photoInput.files[0];
+    const file = photoInput.files[0];
 
-  if (!file) {
-    alert("Pick a photo first!");
-    return;
-  }
+    if (!file) {
+        alert("Pick a photo first!");
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (event) {
+        const polaroid = document.createElement("div");
+        polaroid.className = "polaroid";
 
-  const reader = new FileReader();
+        const img = document.createElement("img");
+        img.src = event.target.result;
 
-  reader.onload = function (event) {
-    const polaroid = document.createElement("div");
-    polaroid.className = "polaroid";
+        const caption = document.createElement("p");
+        caption.textContent = captionInput.value;
 
-    const img = document.createElement("img");
-    img.src = event.target.result;
+        polaroid.appendChild(img);
+        polaroid.appendChild(caption);
+        board.appendChild(polaroid);
 
-    const caption = document.createElement("p");
-    caption.textContent = captionInput.value;
-
-    polaroid.appendChild(img);
-    polaroid.appendChild(caption);
-    board.appendChild(polaroid);
-
-    photoInput.value = "";
-    captionInput.value = "";
-  };
-
-  reader.readAsDataURL(file);
+        photoInput.value = "";
+        captionInput.value = "";
+    };
+    reader.readAsDataURL(file);
 });
