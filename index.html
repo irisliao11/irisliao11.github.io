@@ -3,13 +3,14 @@
 <head>
   <title>time capsule</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="notebook.css">
 </head>
 <body>
   <div class="layout">
     <aside class="sidebar">
-    <button id="newTab">+ new tab</button>
-    <div id="tabList"></div>
-</aside>
+      <button id="newTab">+ new tab</button>
+      <div id="tabList"></div>
+    </aside>
 
     <main class="content">
       <h1 id="title">time capsule</h1>
@@ -20,9 +21,15 @@
         <button id="add">add</button>
       </div>
 
+      <!-- each tab's notebook gets added in here -->
       <div id="board"></div>
     </main>
   </div>
+
+  <!-- the notebook contents, copied into every new tab by script.js -->
+  <template id="pageTemplate">
+    <h2>Moment</h2>
+  </template>
 
   <script src="script.js"></script>
 </body>

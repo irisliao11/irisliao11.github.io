@@ -24,6 +24,7 @@ function createTab(name) {
 
   const page = document.createElement("div");
   page.className = "page";
+  page.appendChild(document.getElementById("pageTemplate").content.cloneNode(true));
 
   tab.addEventListener("click", function () {
     selectTab(tab, page);
