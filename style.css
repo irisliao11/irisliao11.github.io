@@ -140,14 +140,17 @@ input[type="file"]::file-selector-button:hover {
     max-width: 900px;
     margin: 0 auto 24px;
     padding: 24px;
+    min-height: 60vh;
     border: 2px solid var(--dark);
-    min-height: 50vh;
-    background-color: white;
-    background-image: repeating-linear-gradient(white, white 31px, #dbeafe 32px);
+    border-radius: 6px;
+    background-color: #fffdf6;
+    background-image: radial-gradient(#b8c4d6 1.5px, transparent 1.5px);
+    background-size: 24px 24px;   /* space between the dots */
+    box-shadow: 4px 4px 0 rgba(40, 41, 52, 0.15);
 }
 .page.active {
-  display: block;
-  animation: fadeUp 0.6s ease;
+    display: block;
+    animation: fadeUp 0.6s ease;
 }
 
 /* "Moment" title styled like a taped-on label */
