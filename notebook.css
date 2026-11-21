@@ -1,29 +1,29 @@
-body {
-    background: #f8fafc;
-    padding-bottom: 60px;
-}
-
 .page {
+    --cover: var(--main);
+    --paper: #fbfaf6;
+    --paper-edge: #f6f3eb;
+    --crease: #d6cfbb;
+    --crease-shade: #e6e0cf;
+
     position: relative;
     max-width: 1000px;
-    aspect-ratio: auto;
     min-height: 70vh;
     margin: 0 auto 60px;
     padding: 36px 56px 48px;
 
-    border: 16px solid #2B4162;
+    border: 16px solid var(--cover);
     border-radius: 15px;
 
     background-color: #fffdf8;
     background-image: linear-gradient(
         to right,
-        #f6f3eb 0%,
-        #fbfaf6 44%,
-        #e6e0cf 49.5%,
-        #d6cfbb 50%,
-        #e6e0cf 50.5%,
-        #fbfaf6 56%,
-        #f6f3eb 100%
+        var(--paper-edge) 0%,
+        var(--paper) 44%,
+        var(--crease-shade) 49.5%,
+        var(--crease) 50%,
+        var(--crease-shade) 50.5%,
+        var(--paper) 56%,
+        var(--paper-edge) 100%
     );
     box-shadow:
         inset 10px 0 8px -8px rgba(0, 0, 0, 0.25),
@@ -33,30 +33,19 @@ body {
 
 .page h2 {
     margin: 0 0 8px;
-    height: auto;
     line-height: 1.3;
     text-align: left;
 }
 
-.page p {
-    margin: 0;
-    line-height: 1.4;
-}
-
-.page #board {
-    column-count: 2;
+.page #board,
+.page .board {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     column-gap: 90px;
-}
-
-.page .polaroid {
-    display: block;
-    margin: 20px auto 40px;
-    break-inside: avoid;
-}
-
-@media (max-width: 700px) {
-    .page #board { column-count: 1; }
-    .page { background-image: none; }
+    row-gap: 30px;
+    justify-items: center;
+    align-items: start;
+    padding-top: 24px;
 }
 
 .polaroid {
@@ -73,11 +62,56 @@ body {
     background: rgba(104, 216, 244, 0.55);
 }
 
-.tab {
-    border-radius: 0 10px 10px 0;
-    margin-left: -2px;
-    box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+@media (max-width: 700px) {
+    .page {
+        background-image: none;
+    }
+    .page #board,
+    .page .board {
+        grid-template-columns: 1fr;
+    }
 }
-.tab:nth-child(1) { background: #68d8f4; color: #282934; }
-.tab:nth-child(2) { background: #2b4162; color: #f8fafc; }
-.tab:nth-child(3) { background: #f4a9a8; color: #282934; }
+/* ============ binder divider tabs (v2) ============ */
+
+.sidebar {
+  background: transparent;
+  border-right: none;
+  padding: 0;
+  width: 150px;                 /* just wide enough for the tabs */
+}
+
+.content {
+  padding-left: 0;
+}
+
+/* book: flush left, paints OVER the tabs */
+.page {
+  margin: 0 0 60px 0 !important;   /* !important beats the earlier auto margin */
+  position: relative;
+  z-index: 1;
+}
+
+/* the stack of dividers, lined up with the top of the book */
+#tabList {
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 180px;            /* adjust until the first tab sits level with the book's top */
+  margin-right: 0;
+}
+
+.tab {
+    position: relative;
+    z-index: 0;
+    width: 130px;
+    margin-right: -16px;
+    padding: 14px 24px 14px 14px;
+    border: 2px solid var(--dark);
+    border-right: none;
+    border-radius: 14px 0 0 14px;
+    box-shadow: -3px 3px 5px rgba(0, 0, 0, 0.2);
+    text-align: left;
+    transition: transform 0.15s;
+}
+
+.tab:hover  { transform: translateX(-8px); }
+.tab.active { transform: translateX(-16px); }
