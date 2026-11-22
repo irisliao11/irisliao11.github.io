@@ -260,7 +260,6 @@ input[type="text"] {
 .tab:hover  { transform: translateX(-8px); }
 .tab.active { transform: translateX(-16px); }
 
-/* colors repeat every 4 tabs */
 .tab:nth-child(4n+1) { background: #b0e3ed; }
 .tab:nth-child(4n+2) { background: #caf0f8; }
 .tab:nth-child(4n+3) { background: #90e0ef; }
@@ -392,7 +391,6 @@ input[type="text"] {
     outline-offset: 6px;
 }
 
-/* strip of tape */
 .polaroid::before {
     content: "";
     position: absolute;
