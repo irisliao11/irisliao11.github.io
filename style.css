@@ -600,8 +600,8 @@ input[type="text"] {
 .snowflake {
     position: absolute;
     top: -30px;
-    color: #dbecef;
-    text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
+    color: #e6f5f8;
+    -webkit-text-stroke: 0.1px #cfe1fa;
     user-select: none;
     animation: snowfall linear forwards;
 }
