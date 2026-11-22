@@ -10,7 +10,6 @@ const pageTemplate = document.getElementById("pageTemplate");
 const openDateInput = document.getElementById("openDate");
 const sealButton = document.getElementById("seal");
 
-
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -19,7 +18,6 @@ function load() {
   return null;
 }
 
-
 function save() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -27,16 +25,22 @@ function save() {
     alert("Storage is full! Try smaller photos or fewer of them.");
   }
 }
-
 let state = load() || {
   active: 0,
   tabs: [{ name: "Moment 1", photos: [], sealedUntil: null }]
 };
 delete state.sealedUntil;
+
 function ghost(page, showRight) {
   const c = page.cloneNode(true);
   c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
   c.querySelectorAll("*").forEach(function (el) { el.style.animation = "none"; });
+  c.querySelectorAll(".page-lock").forEach(function (el) {
+    el.style.backdropFilter = "none";
+    el.style.webkitBackdropFilter = "none";
+    el.style.background = "rgba(226, 241, 252, 0.97)";
+  });
+
   Object.assign(c.style, {
     position: "absolute", top: "0", height: "100%", width: "200%",
     left: showRight ? "-100%" : "0",
@@ -52,11 +56,10 @@ function face(extra) {
   Object.assign(f.style, {
     position: "absolute", inset: "0", overflow: "hidden",
     backfaceVisibility: "hidden", webkitBackfaceVisibility: "hidden",
-    boxShadow: "0 0 18px rgba(0, 0, 0, 0.3)"
+    boxShadow: "0 0 8px rgba(0, 0, 0, 0.25)"
   }, extra);
   return f;
 }
-
 function flip(oldPage, backward) {
   const newPage = pagesEl.querySelector(".page.active");
   if (!oldPage || !newPage) return;
@@ -90,6 +93,7 @@ function flip(oldPage, backward) {
     position: "absolute", top: "0", bottom: "0", left: "50%", width: "50%",
     transformOrigin: "left center", transformStyle: "preserve-3d"
   });
+  leaf.style.willChange = "transform";
 
   const front = face();
   const back = face({ transform: "rotateY(180deg)" });
@@ -110,7 +114,7 @@ function flip(oldPage, backward) {
     : [{ transform: "rotateY(0deg)" }, { transform: "rotateY(-180deg)" }];
 
   const anim = leaf.animate(frames, {
-    duration: 800, easing: "ease-in-out", fill: "forwards"
+    duration: 700, easing: "ease-in-out", fill: "forwards"
   });
   anim.onfinish = function () { wrap.remove(); };
 }
@@ -133,7 +137,7 @@ function tick() {
   state.tabs.forEach(function (t) {
     if (t.sealedUntil && now >= t.sealedUntil) {
       t.sealedUntil = null;
-      t.thawPending = true;      // show the "it's time!" card once
+      t.thawPending = true;
       thawed = true;
     }
   });
@@ -144,7 +148,7 @@ function tick() {
     return;
   }
 
-  document.querySelectorAll(".countdown").forEach(function (el) {
+  document.querySelectorAll(".page > .page-lock .countdown").forEach(function (el) {
     el.textContent = formatLeft(Number(el.dataset.until) - now);
   });
 }
@@ -221,6 +225,7 @@ function closeMenu() {
     menu = null;
   }
 }
+
 function deletePhoto(tabIndex, photoIndex) {
   if (isTabLocked(state.tabs[tabIndex])) return;
   state.tabs[tabIndex].photos.splice(photoIndex, 1);
@@ -253,6 +258,7 @@ function showMenu(x, y, tabIndex, photoIndex, captionEl) {
 
   menu.append(editBtn, deleteBtn);
   document.body.appendChild(menu);
+
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
   menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
@@ -371,7 +377,6 @@ function render() {
         const img = document.createElement("img");
         img.src = photo.src;
 
-
         const caption = document.createElement("p");
         caption.textContent = photo.caption;
         polaroid.addEventListener("contextmenu", function (e) {
@@ -401,6 +406,7 @@ function render() {
     }
 
     page.appendChild(board);
+
     if (locked) {
       const n = tabData.photos.length;
       const cover = document.createElement("div");
@@ -418,7 +424,8 @@ function render() {
       cd.dataset.until = tabData.sealedUntil;
       cd.textContent = formatLeft(tabData.sealedUntil - Date.now());
       page.appendChild(cover);
-    }    if (tabData.thawPending) {
+    }
+    if (tabData.thawPending) {
       const cover = document.createElement("div");
       cover.className = "page-lock";
       cover.innerHTML =
@@ -444,7 +451,7 @@ function shrinkImage(file, callback) {
   reader.onload = function (event) {
     const img = new Image();
     img.onload = function () {
-      const maxSize = 600;
+      const maxSize = 450;
       const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
@@ -463,6 +470,7 @@ function shrinkImage(file, callback) {
   };
   reader.readAsDataURL(file);
 }
+
 
 addButton.addEventListener("click", function () {
   const tab = state.tabs[state.active];
@@ -489,7 +497,6 @@ addButton.addEventListener("click", function () {
     captionInput.value = "";
   });
 });
-
 newTabButton.addEventListener("click", function () {
   const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
   if (!name) return;
@@ -500,11 +507,5 @@ newTabButton.addEventListener("click", function () {
   render();
   flip(oldPage);
 });
-document.addEventListener("keydown", function (e) {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "u") {
-    state.tabs[state.active].sealedUntil = null;
-    save();
-    render();
-  }
-});
+
 render();
