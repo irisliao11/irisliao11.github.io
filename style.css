@@ -587,11 +587,11 @@ input[type="text"] {
     min-height: 100vh;
     box-sizing: border-box;
     background-image: url(icicle.jpeg);
-    background-size: cover;
-    background-position: center;
+    background-size: 100% 100%;
+    background-position: top center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    background-color: #f8fafc;
+    background-color: #F8FAFC;
 }
 #snowContainer {
     position: fixed;
