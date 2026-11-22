@@ -260,7 +260,7 @@ input[type="text"] {
 .tab:hover  { transform: translateX(-8px); }
 .tab.active { transform: translateX(-16px); }
 
-.tab:nth-child(4n+1) { background: #b0e3ed; }
+.tab:nth-child(4n+1) { background: #ace5ff; }
 .tab:nth-child(4n+2) { background: #caf0f8; }
 .tab:nth-child(4n+3) { background: #90e0ef; }
 .tab:nth-child(4n+4) { background: #4faddf; }
@@ -588,4 +588,32 @@ input[type="text"] {
     background-size: cover;
     background-position: center;
     background-color: #F8FAFC;
+}
+#snowContainer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.snowflake {
+    position: absolute;
+    top: -30px;
+    color: #e6f5f8;
+    -webkit-text-stroke: 0.1px #cfe1fa;
+    user-select: none;
+    animation: snowfall linear forwards;
+}
+
+@keyframes snowfall {
+    0% {
+        transform: translateY(0) translateX(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(50vh) translateX(var(--sway, 20px)) rotate(180deg);
+    }
+    100% {
+        transform: translateY(105vh) translateX(0) rotate(360deg);
+    }
 }

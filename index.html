@@ -4,51 +4,72 @@
   <meta charset="UTF-8">
   <title>time capsule</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@400;700&display=swap">
   <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <main class="content">
-    <div class="corner corner-left">
-      <button id="newTab">+ new tab</button>
-    </div>
-    <div class="corner corner-right">
-      <label for="openDate" class="bar-label">opens on</label>
-      <input type="datetime-local" id="openDate">
-      <button id="seal">seal this tab</button>
-    </div>
 
-    <h1><a href="home.html">time capsule</a></h1>
-    <div class="topbar">
-      <div class="bar-center">
-        <input type="file" id="photo" accept="image/*" aria-label="Choose a photo">
-        <input type="text" id="caption" placeholder="Describe this memory" aria-label="Photo description">
-        <button id="add">add</button>
-      </div>
-    </div>
-    <div class="desk">
-      <div id="tabList"></div>
-      <div id="pages"></div>
-      <aside id="stickerBar" aria-label="Stickers">
-        <h3>stickers</h3>
-        <div class="sticker-grid">
-          <button type="button" class="sticker-btn" data-sticker="⭐">⭐</button>
-          <button type="button" class="sticker-btn" data-sticker="🌸">🌸</button>
-          <button type="button" class="sticker-btn" data-sticker="🐾">🐾</button>
-          <button type="button" class="sticker-btn" data-sticker="💖">💖</button>
-          <button type="button" class="sticker-btn" data-sticker="✨">✨</button>
-          <button type="button" class="sticker-btn" data-sticker="🍀">🍀</button>
-          <button type="button" class="sticker-btn" data-sticker="🎀">🎀</button>
-          <button type="button" class="sticker-btn" data-sticker="🌈">🌈</button>
-        </div>
-      </aside>
-    </div>
+  <style>
+    .home { max-width: 600px; margin: 0 auto; padding: 8vh 24px; text-align: center; }
+    .home ul { list-style: none; padding: 0; }
+    .home li { padding: 6px 0; }
+  </style>
+</head>
+<body id = "homepage">
+  <div id="snowContainer" aria-hidden="true"></div>
+  <main class="home">
+    <h1>time capsule</h1>
+    <p>freeze your moments and open them later.</p>
+
+    <button id="open">open my capsule</button>
+
+    <h2>your moments</h2>
+    <ul id="moments"></ul>
   </main>
-  <template id="pageTemplate">
-    <h2>Moment</h2>
-  </template>
-  <script src="script.js"></script>
+
+  <script>
+    document.getElementById("open").addEventListener("click", function () {
+      location.href = "home.html";
+    });
+    const list = document.getElementById("moments");
+    let tabs = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem("timeCapsule"));
+      if (saved && saved.tabs) tabs = saved.tabs;
+    } catch (e) {}
+
+    if (!tabs.length) {
+      const li = document.createElement("li");
+      li.textContent = "no moments yet";
+      list.appendChild(li);
+    }
+
+    tabs.forEach(function (tab) {
+      const n = tab.photos.length;
+      let text = tab.name + " · " + n + " photo" + (n === 1 ? "" : "s");
+      if (tab.sealedUntil && Date.now() < tab.sealedUntil) {
+        text += " · sealed until " + new Date(tab.sealedUntil).toLocaleString();
+      }
+      const li = document.createElement("li");
+      li.textContent = text;
+      list.appendChild(li);
+    });
+  </script>
+  <script>
+    const snowBox = document.getElementById("snowContainer");
+    const flakes = ["❄", "❅", "❆", "•"];
+    setInterval(() => {
+      const f = document.createElement("div");
+      f.className = "snowflake";
+      f.textContent = flakes[Math.floor(Math.random() * flakes.length)];
+      const dur = 6 + Math.random() * 7;
+      f.style.left = Math.random() * 100 + "vw";
+      f.style.fontSize = (12 + Math.random() * 14) + "px";
+      f.style.opacity = 0.5 + Math.random() * 0.5;
+      f.style.animationDuration = dur + "s";
+      f.style.setProperty("--sway", ((Math.random() - 0.5) * 60) + "px");
+      snowBox.appendChild(f);
+      setTimeout(() => f.remove(), dur * 1000);
+    }, 350);
+  </script>
+</body>
 </body>
 </html>
