@@ -31,20 +31,19 @@ let state = load() || {
 };
 delete state.sealedUntil;
 
-// ---------- polaroid layout: position, rotation, size ----------
+const COL_X = [0.25, 0.75];
+const FIRST_Y = 90;
+const ROW_STEP = 310;
 
-const COL_X = [0.22, 0.78];   // where the two starting columns sit, as a fraction of the board width
-const ROW_STEP = 330;         // space between starting rows, in px
-
-// every photo gets a saved spot; older photos get one based on their place in the list
 function getLayout(photo, i) {
   if (!photo.layout) {
+    const wave = Math.floor(i / 4);
     photo.layout = {
-      cx: COL_X[i % 2],                          // center, as a fraction of the board width
-      y: 24 + Math.floor(i / 2) * ROW_STEP,      // top edge, in px
-      r: i % 2 === 0 ? -3 : 3,                   // rotation, in degrees
-      s: 1,                                      // size
-      z: 1                                       // stacking order
+      cx: COL_X[i % 2] + wave * 0.03,
+      y: FIRST_Y + (Math.floor(i / 2) % 2) * ROW_STEP + wave * 20,
+      r: i % 2 === 0 ? -3 : 3,
+      s: 1,
+      z: 1
     };
   }
   return photo.layout;
@@ -58,8 +57,21 @@ function applyLayout(el, L) {
   el.style.transform =
     "translateX(-50%) rotate(" + L.r + "deg) scale(" + L.s + ")";
 }
+function clampLayout(el, L, board) {
+  const bw = board.clientWidth;
+  const bh = board.clientHeight;
+  if (!bw || !bh) return;
 
-// one higher than any photo's stacking order
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+
+  const halfW = (w * L.s) / 2 + 4;
+  L.cx = Math.max(halfW / bw, Math.min(1 - halfW / bw, L.cx));
+
+  const minY = 4 - (h * (1 - L.s)) / 2;
+  const maxY = bh - 4 - (h * (1 + L.s)) / 2;
+  L.y = Math.max(minY, Math.min(maxY, L.y));
+}
 function topZ() {
   let z = 1;
   state.tabs.forEach(function (t) {
@@ -68,12 +80,6 @@ function topZ() {
     });
   });
   return z + 1;
-}
-
-// makes the page taller if a photo is dragged toward the bottom
-function growBoard(board, y) {
-  const need = y + 360;
-  if (need > board.offsetHeight) board.style.height = need + "px";
 }
 
 let selectedEl = null;
@@ -89,12 +95,10 @@ function deselectPolaroid() {
   selectedEl = null;
 }
 
-// clicking anywhere that isn't a photo puts the handles away
 document.addEventListener("pointerdown", function (e) {
   if (!e.target.closest(".polaroid")) deselectPolaroid();
 });
 
-// follows one pointer from press to release
 function track(polaroid, startEvent, onMove, onEnd) {
   polaroid.classList.add("dragging");
 
@@ -113,14 +117,12 @@ function track(polaroid, startEvent, onMove, onEnd) {
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
 }
-
-// adds dragging, the four rotate circles, and the − / + buttons to a polaroid
 function makeInteractive(polaroid, L) {
 
   // drag the photo to move it
   polaroid.addEventListener("pointerdown", function (e) {
     if (e.button !== 0) return;
-    if (e.target.closest(".caption-input, .photo-delete, .polaroid-tools, .rot-handle")) return;
+    if (e.target.closest(".caption-input, .polaroid-tools, .rot-handle")) return;
 
     selectPolaroid(polaroid);
     L.z = topZ();
@@ -139,14 +141,13 @@ function makeInteractive(polaroid, L) {
       const dy = ev.clientY - startY;
       if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;   // ignore tiny wobbles
       moved = true;
-      L.cx = Math.min(0.96, Math.max(0.04, startCx + dx / boardWidth));
-      L.y = Math.max(-20, startTop + dy);
+      L.cx = startCx + dx / boardWidth;
+      L.y = startTop + dy;
+      clampLayout(polaroid, L, board);
       applyLayout(polaroid, L);
-      growBoard(board, L.y);
     }, save);
   });
 
-  // four circles: drag any one to rotate
   ["tl", "tr", "bl", "br"].forEach(function (pos) {
     const handle = document.createElement("div");
     handle.className = "rot-handle " + pos;
@@ -175,7 +176,6 @@ function makeInteractive(polaroid, L) {
     polaroid.appendChild(handle);
   });
 
-  // − and + buttons to resize
   const tools = document.createElement("div");
   tools.className = "polaroid-tools";
 
@@ -189,6 +189,7 @@ function makeInteractive(polaroid, L) {
 
   function resize(step) {
     L.s = Math.min(2.5, Math.max(0.4, Math.round((L.s + step) * 100) / 100));
+    clampLayout(polaroid, L, polaroid.parentElement);
     applyLayout(polaroid, L);
     save();
   }
@@ -205,24 +206,36 @@ function makeInteractive(polaroid, L) {
   polaroid.appendChild(tools);
 }
 
-// ---------- page flip ----------
-
 function ghost(page, showRight) {
   const c = page.cloneNode(true);
+  c.style.setProperty("--ghost", "1");
   c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
   c.querySelectorAll("*").forEach(function (el) { el.style.animation = "none"; });
+
+  // blur is expensive to animate, so the copies use a flat frosted color
   c.querySelectorAll(".page-lock").forEach(function (el) {
     el.style.backdropFilter = "none";
     el.style.webkitBackdropFilter = "none";
     el.style.background = "rgba(226, 241, 252, 0.97)";
   });
 
+  c.querySelectorAll(".rot-handle, .polaroid-tools").forEach(function (el) {
+    el.remove();
+  });
+  c.querySelectorAll(".polaroid").forEach(function (p) {
+    p.classList.remove("selected", "dragging");
+    p.style.transition = "none";
+    p.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.3)";
+  });
+
   Object.assign(c.style, {
-    position: "absolute", top: "0", height: "100%", width: "200%",
-    left: showRight ? "-100%" : "0",
-    maxWidth: "none", minHeight: "0", margin: "0",
+    position: "absolute", top: "0", left: showRight ? "-100%" : "0",
+    width: "200%", height: "100%",
+    maxWidth: "none", minHeight: "0", maxHeight: "none", margin: "0",
+    boxSizing: "border-box",
     border: "none", borderRadius: "0", boxShadow: "none",
-    animation: "none", display: "block", zIndex: "auto"
+    animation: "none", display: "block", zIndex: "auto",
+    overflow: "hidden"
   });
   return c;
 }
@@ -236,6 +249,7 @@ function face(extra) {
   }, extra);
   return f;
 }
+
 function flip(oldPage, backward) {
   const newPage = pagesEl.querySelector(".page.active");
   if (!oldPage || !newPage) return;
@@ -248,7 +262,7 @@ function flip(oldPage, backward) {
   wrap.className = "flip-wrap";
   Object.assign(wrap.style, {
     position: "absolute", inset: "0", perspective: "3000px",
-    pointerEvents: "none", zIndex: "5"
+    pointerEvents: "none", zIndex: "100000"
   });
 
   const cover = document.createElement("div");
@@ -295,8 +309,6 @@ function flip(oldPage, backward) {
   anim.onfinish = function () { wrap.remove(); };
 }
 
-// ---------- sealing ----------
-
 function isTabLocked(tab) {
   return !!tab.sealedUntil && Date.now() < tab.sealedUntil;
 }
@@ -308,6 +320,7 @@ function formatLeft(ms) {
   const m = Math.floor((s % 3600) / 60);
   return d + "d " + h + "h " + m + "m " + (s % 60) + "s";
 }
+
 function tick() {
   const now = Date.now();
   let thawed = false;
@@ -357,8 +370,6 @@ sealButton.addEventListener("click", function () {
   render();
 });
 
-// ---------- tabs ----------
-
 function deleteTab(index) {
   const tab = state.tabs[index];
 
@@ -397,8 +408,6 @@ function renameTab(index) {
   render();
 }
 
-// ---------- photo menu (right-click) ----------
-
 let menu = null;
 
 function closeMenu() {
@@ -407,7 +416,6 @@ function closeMenu() {
     menu = null;
   }
 }
-
 function deletePhoto(tabIndex, photoIndex) {
   if (isTabLocked(state.tabs[tabIndex])) return;
   state.tabs[tabIndex].photos.splice(photoIndex, 1);
@@ -417,6 +425,7 @@ function deletePhoto(tabIndex, photoIndex) {
     p.style.animation = "none";
   });
 }
+
 function showMenu(x, y, tabIndex, photoIndex, captionEl) {
   closeMenu();
 
@@ -435,6 +444,7 @@ function showMenu(x, y, tabIndex, photoIndex, captionEl) {
   deleteBtn.textContent = "delete photo";
   deleteBtn.addEventListener("click", function () {
     closeMenu();
+    if (!confirm("Delete this photo?")) return;
     deletePhoto(tabIndex, photoIndex);
   });
 
@@ -445,6 +455,7 @@ function showMenu(x, y, tabIndex, photoIndex, captionEl) {
   menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
   menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
 }
+
 function editCaption(captionEl, tabIndex, photoIndex) {
   const photo = state.tabs[tabIndex].photos[photoIndex];
 
@@ -476,6 +487,7 @@ function editCaption(captionEl, tabIndex, photoIndex) {
     finish(true);
   });
 }
+
 document.addEventListener("click", closeMenu);
 document.addEventListener("contextmenu", closeMenu);
 window.addEventListener("scroll", closeMenu);
@@ -483,16 +495,15 @@ document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") closeMenu();
 });
 
-// ---------- drawing the page ----------
-
 function render() {
-  selectedEl = null;   // the old photo elements are about to be replaced
+  selectedEl = null;
   tabList.innerHTML = "";
   pagesEl.innerHTML = "";
 
   state.tabs.forEach(function (tabData, index) {
     const isActive = index === state.active;
     const locked = isTabLocked(tabData);
+
     const tab = document.createElement("div");
     tab.className = "tab" + (isActive ? " active" : "");
     tab.title = "Double-click to rename";
@@ -553,14 +564,10 @@ function render() {
     const board = document.createElement("div");
     board.className = "board";
 
-    // give every photo a spot, and size the board to fit the lowest one
-    let lowest = 0;
+    // every photo gets a saved spot
     tabData.photos.forEach(function (photo, i) {
-      const L = getLayout(photo, i);
-      if (L.y > lowest) lowest = L.y;
+      getLayout(photo, i);
     });
-    board.style.height = Math.max(300, lowest + 360) + "px";
-
     if (!locked) {
       tabData.photos.forEach(function (photo, i) {
         const L = photo.layout;
@@ -568,6 +575,7 @@ function render() {
         const polaroid = document.createElement("div");
         polaroid.className = "polaroid";
         polaroid.style.setProperty("--i", i);
+        polaroid._L = L;
         applyLayout(polaroid, L);
 
 
@@ -585,27 +593,16 @@ function render() {
         caption.addEventListener("dblclick", function () {
           editCaption(caption, index, i);
         });
-        const photoDel = document.createElement("button");
-        photoDel.className = "photo-delete";
-        photoDel.textContent = "×";
-        photoDel.title = "Delete photo";
-        photoDel.addEventListener("click", function (e) {
-          e.stopPropagation();
-          if (!confirm("Delete this photo?")) return;
-          deletePhoto(index, i);
-        });
 
 
         polaroid.appendChild(img);
         polaroid.appendChild(caption);
-        polaroid.appendChild(photoDel);
         makeInteractive(polaroid, L);
         board.appendChild(polaroid);
       });
     }
 
     page.appendChild(board);
-
     if (locked) {
       const n = tabData.photos.length;
       const cover = document.createElement("div");
@@ -642,6 +639,11 @@ function render() {
     }
 
     pagesEl.appendChild(page);
+  });
+  document.querySelectorAll(".page.active .polaroid").forEach(function (p) {
+    if (!p._L) return;
+    clampLayout(p, p._L, p.parentElement);
+    applyLayout(p, p._L);
   });
 }
 
