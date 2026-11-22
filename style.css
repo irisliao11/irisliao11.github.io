@@ -260,7 +260,7 @@ input[type="text"] {
 .tab:hover  { transform: translateX(-8px); }
 .tab.active { transform: translateX(-16px); }
 
-.tab:nth-child(4n+1) { background: #b0e3ed; }
+.tab:nth-child(4n+1) { background: #ace5ff; }
 .tab:nth-child(4n+2) { background: #caf0f8; }
 .tab:nth-child(4n+3) { background: #90e0ef; }
 .tab:nth-child(4n+4) { background: #4faddf; }
