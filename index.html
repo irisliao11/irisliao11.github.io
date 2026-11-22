@@ -11,13 +11,9 @@
 </head>
 <body>
   <main class="content">
-
-    <!-- top-left: new tab -->
     <div class="corner corner-left">
       <button id="newTab">+ new tab</button>
     </div>
-
-    <!-- top-right: seal the current tab until a date -->
     <div class="corner corner-right">
       <label for="openDate" class="bar-label">opens on</label>
       <input type="datetime-local" id="openDate">
@@ -25,8 +21,6 @@
     </div>
 
     <h1>time capsule</h1>
-
-    <!-- add a photo to the current tab -->
     <div class="topbar">
       <div class="bar-center">
         <input type="file" id="photo" accept="image/*" aria-label="Choose a photo">
@@ -34,19 +28,14 @@
         <button id="add">add</button>
       </div>
     </div>
-
-    <!-- tabs and notebook pages are built by script.js -->
     <div class="desk">
       <div id="tabList"></div>
       <div id="pages"></div>
     </div>
   </main>
-
-  <!-- starting content for every notebook page -->
   <template id="pageTemplate">
     <h2>Moment</h2>
   </template>
-
   <script src="script.js"></script>
 </body>
 </html>

@@ -1,8 +1,3 @@
-/* ==========================================================
-   Time capsule styles
-   (style.css and notebook.css merged into one file)
-   ========================================================== */
-
 :root {
     --main: #2b4162;
     --secondary: #68d8f4;
@@ -15,15 +10,10 @@
 
     --heading-font: "Gochi Hand", cursive;
     --body-font: "Nunito", sans-serif;
-
-    /* dotted-notebook paper */
     --dot-color: #b8c4d6;
     --dot-size: 1.5px;
     --dot-gap: 24px;
 }
-
-
-/* ---------- Base ---------- */
 
 body {
     margin: 0;
@@ -79,9 +69,6 @@ input[type="text"] {
     width: 260px;
 }
 
-
-/* ---------- Page layout and top bar ---------- */
-
 .content {
     position: relative;
     padding: 0 24px 0 0;
@@ -133,10 +120,6 @@ input[type="text"] {
     flex: 1;
     min-width: 0;
 }
-
-
-/* ---------- Side tabs ---------- */
-
 #tabList {
     display: flex;
     flex-direction: column;
@@ -220,14 +203,10 @@ input[type="text"] {
 
 .tab-edit:hover   { background: var(--secondary); }
 .tab-delete:hover { background: #e5534b; color: white; }
-
-
-/* ---------- Notebook page ---------- */
-
 .page {
     display: none;
     position: relative;
-    z-index: 1;                 /* the book paints over the tabs */
+    z-index: 1;
     box-sizing: border-box;
     max-width: 1000px;
     height: max(760px, 85vh);
@@ -261,8 +240,6 @@ input[type="text"] {
 .page.active {
     display: block;
 }
-
-/* title "sticky note" */
 .page h2 {
     display: inline-block;
     margin: 0 0 8px;
@@ -275,10 +252,6 @@ input[type="text"] {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
-
-/* ---------- Polaroids ---------- */
-
-/* the board fills the page; polaroids are positioned inside it by script.js */
 .board {
     position: absolute;
     inset: 0;
@@ -366,7 +339,6 @@ input[type="text"] {
     border-color: var(--secondary);
 }
 
-/* rotate handles (corners) and the +/- resize buttons, shown when selected */
 .rot-handle {
     display: none;
     position: absolute;
@@ -379,7 +351,6 @@ input[type="text"] {
     background: white;
     cursor: grab;
     touch-action: none;
-    /* --s is the photo's scale; dividing keeps the handle a constant size */
     transform: translate(-50%, -50%) scale(calc(1 / var(--s, 1)));
 }
 .rot-handle:hover { background: var(--secondary); }
@@ -415,9 +386,6 @@ input[type="text"] {
 .polaroid.selected .rot-handle  { display: block; }
 .polaroid.selected .polaroid-tools { display: flex; }
 
-
-/* ---------- Right-click menu ---------- */
-
 .photo-menu {
     position: fixed;
     z-index: 1000;
@@ -448,9 +416,6 @@ input[type="text"] {
     color: white;
 }
 
-
-/* ---------- Sealed / thawed overlay ---------- */
-
 .page-lock {
     position: absolute;
     inset: 0;
@@ -472,7 +437,6 @@ input[type="text"] {
     text-align: center;
 }
 
-/* undo the sticky-note look of .page h2 */
 .page .lock-card h2 {
     display: block;
     margin: 0 0 8px;
@@ -499,30 +463,18 @@ input[type="text"] {
 .lock-card button {
     margin-top: 12px;
 }
-
-
-/* ---------- Page-flip animation (built in script.js) ---------- */
-
 .flip-wrap {
     contain: layout paint;
 }
-
-
-/* ---------- Animations ---------- */
 
 @keyframes polaroidIn {
     from { opacity: 0; translate: 0 20px; }
     to   { opacity: 1; translate: 0 0; }
 }
 
-
-/* ---------- Small screens ---------- */
-
 @media (max-width: 700px) {
     #tabList { width: 90px; }
     .tab     { font-size: 14px; }
-
-    /* no center crease on a single column */
     .page {
         background-image:
             radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
