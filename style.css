@@ -296,3 +296,4 @@ input[type="file"]::file-selector-button:hover {
     85%  { opacity: 1; }
     100% { transform: perspective(1800px) rotateY(-180deg); opacity: 0; }
 }
+

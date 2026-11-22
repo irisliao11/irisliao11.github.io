@@ -145,6 +145,96 @@ function renameTab(index) {
   save();
   render();
 }
+
+// ---------- new: photo menu (right-click) ----------
+let menu = null;
+
+function closeMenu() {
+  if (menu) {
+    menu.remove();
+    menu = null;
+  }
+}
+
+// the small menu that appears where you right-click
+function showMenu(x, y, tabIndex, photoIndex, captionEl) {
+  closeMenu();
+
+  menu = document.createElement("div");
+  menu.className = "photo-menu";
+
+  const editBtn = document.createElement("button");
+  editBtn.textContent = "edit description";
+  editBtn.addEventListener("click", function () {
+    closeMenu();
+    editCaption(captionEl, tabIndex, photoIndex);
+  });
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "danger";
+  deleteBtn.textContent = "delete photo";
+  deleteBtn.addEventListener("click", function () {
+    closeMenu();
+    state.tabs[tabIndex].photos.splice(photoIndex, 1);
+    save();
+    render();
+    // keep the remaining photos from fading in again
+    document.querySelectorAll(".polaroid").forEach(function (p) {
+      p.style.animation = "none";
+    });
+  });
+
+  menu.append(editBtn, deleteBtn);
+  document.body.appendChild(menu);
+
+  // keep the menu on screen
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+}
+
+// swaps the caption for a text box right on the polaroid
+function editCaption(captionEl, tabIndex, photoIndex) {
+  const photo = state.tabs[tabIndex].photos[photoIndex];
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "caption-input";
+  input.value = photo.caption;
+  captionEl.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let done = false;
+  function finish(saveIt) {
+    if (done) return;
+    done = true;
+    if (saveIt) {
+      photo.caption = input.value;
+      captionEl.textContent = photo.caption;
+      save();
+    }
+    input.replaceWith(captionEl);
+  }
+
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") finish(true);
+    if (e.key === "Escape") finish(false);
+  });
+  input.addEventListener("blur", function () {
+    finish(true);
+  });
+}
+
+// close the menu when you click elsewhere, scroll, or press Esc
+document.addEventListener("click", closeMenu);
+document.addEventListener("contextmenu", closeMenu);
+window.addEventListener("scroll", closeMenu);
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") closeMenu();
+});
+// ---------- end of new code ----------
+
 function render() {
   tabList.innerHTML = "";
   pagesEl.innerHTML = "";
@@ -218,6 +308,18 @@ function render() {
       const caption = document.createElement("p");
       caption.textContent = photo.caption;
 
+      // new: right-click a photo for the menu
+      polaroid.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        showMenu(e.clientX, e.clientY, index, i, caption);
+      });
+
+      // new: double-click a caption to edit it
+      caption.addEventListener("dblclick", function () {
+        editCaption(caption, index, i);
+      });
+
 
       polaroid.appendChild(img);
       polaroid.appendChild(caption);
@@ -287,6 +389,7 @@ newTabButton.addEventListener("click", function () {
   render();
   flip(oldPage);
 });
+
 
 
 render();
