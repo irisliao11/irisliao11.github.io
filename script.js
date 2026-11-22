@@ -118,8 +118,6 @@ function track(polaroid, startEvent, onMove, onEnd) {
   window.addEventListener("pointercancel", up);
 }
 function makeInteractive(polaroid, L) {
-
-  // drag the photo to move it
   polaroid.addEventListener("pointerdown", function (e) {
     if (e.button !== 0) return;
     if (e.target.closest(".caption-input, .polaroid-tools, .rot-handle")) return;
@@ -139,7 +137,7 @@ function makeInteractive(polaroid, L) {
     track(polaroid, e, function (ev) {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;   // ignore tiny wobbles
+      if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
       moved = true;
       L.cx = startCx + dx / boardWidth;
       L.y = startTop + dy;
@@ -211,8 +209,6 @@ function ghost(page, showRight) {
   c.style.setProperty("--ghost", "1");
   c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
   c.querySelectorAll("*").forEach(function (el) { el.style.animation = "none"; });
-
-  // blur is expensive to animate, so the copies use a flat frosted color
   c.querySelectorAll(".page-lock").forEach(function (el) {
     el.style.backdropFilter = "none";
     el.style.webkitBackdropFilter = "none";
@@ -261,7 +257,7 @@ function flip(oldPage, backward) {
   const wrap = document.createElement("div");
   wrap.className = "flip-wrap";
   Object.assign(wrap.style, {
-    position: "absolute", inset: "0", perspective: "3000px",
+    position: "absolute", inset: "0", perspective: "9000px",
     pointerEvents: "none", zIndex: "100000"
   });
 
@@ -708,5 +704,4 @@ newTabButton.addEventListener("click", function () {
   render();
   flip(oldPage);
 });
-
 render();
