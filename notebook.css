@@ -24,7 +24,6 @@
             rgba(0, 0, 0, 0.05) 51%,
             transparent 56%
         ),
-        /* the dots */
         radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
     background-size: 100% 100%, var(--dot-gap) var(--dot-gap);
     background-position: 0 0, 12px 12px;
@@ -88,11 +87,11 @@
     z-index: 0;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 6px;
-    width: 130px;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 150px;
     margin-right: 0;
-    padding: 14px 24px 14px 14px;
+    padding: 14px 28px 14px 14px;
     border: 2px solid var(--dark);
     border-right: none;
     border-radius: 14px 0 0 14px;
@@ -106,18 +105,20 @@
 .tab.active { transform: translateX(-16px); }
 
 .tab-label {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
+.tab-edit,
 .tab-delete {
     flex-shrink: 0;
     width: 22px;
     height: 22px;
     padding: 0;
     line-height: 1;
-    font-size: 16px;
     border: none;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.12);
@@ -125,42 +126,18 @@
     opacity: 0;
     transition: opacity 0.15s;
 }
+.tab-edit   { font-size: 13px; }
+.tab-delete { font-size: 16px; }
+
+.tab:hover .tab-edit,
 .tab:hover .tab-delete,
+.tab.active .tab-edit,
 .tab.active .tab-delete {
     opacity: 1;
 }
-.tab-delete:hover {
-    background: #e5534b;
-    color: white;
-}
 
-.page.flipping {
-    animation: none;
-}
-.page.flipping::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 50%;
-    z-index: 5;
-    pointer-events: none;
-    background-color: #fffdf6;
-    background-image:
-        linear-gradient(to right, rgba(0, 0, 0, 0.12), transparent 30%),
-        radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
-    background-size: 100% 100%, var(--dot-gap) var(--dot-gap);
-    box-shadow: -6px 0 18px rgba(0, 0, 0, 0.25);
-    transform-origin: left center;
-    animation: pageFlip 0.7s ease-in-out forwards;
-}
-
-@keyframes pageFlip {
-    0%   { transform: perspective(1800px) rotateY(0deg);    opacity: 1; }
-    80%  { transform: perspective(1800px) rotateY(-165deg); opacity: 1; }
-    100% { transform: perspective(1800px) rotateY(-180deg); opacity: 0; }
-}
+.tab-edit:hover   { background: var(--secondary); }
+.tab-delete:hover { background: #e5534b; color: white; }
 
 @media (max-width: 700px) {
     .page {
@@ -172,8 +149,5 @@
     .page #board,
     .page .board {
         grid-template-columns: 1fr;
-    }
-    .page.flipping::after {
-        display: none;
     }
 }
