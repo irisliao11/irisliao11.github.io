@@ -29,83 +29,29 @@ let state = load() || {
   tabs: [{ name: "Moment 1", photos: [] }]
 };
 
-// ---------- page flip (new) ----------
+function deleteTab(index) {
+  const tab = state.tabs[index];
+  if (state.tabs.length === 1) {
+    alert("You need at least one tab!");
+    return;
+  }
 
-// copy of a page, sized so only its left or right half shows inside a half-width box
-function ghost(page, showRight) {
-  const c = page.cloneNode(true);
-  c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
-  c.querySelectorAll("*").forEach(function (el) { el.style.animation = "none"; });
-  Object.assign(c.style, {
-    position: "absolute", top: "0", height: "100%", width: "200%",
-    left: showRight ? "-100%" : "0",
-    maxWidth: "none", minHeight: "0", margin: "0",
-    border: "none", borderRadius: "0", boxShadow: "none",
-    animation: "none", display: "block", zIndex: "auto"
-  });
-  return c;
+  const count = tab.photos.length;
+  const warning = count > 0
+    ? 'Delete "' + tab.name + '" and its ' + count + " photo(s)? This can't be undone."
+    : 'Delete "' + tab.name + '"?';
+  if (!confirm(warning)) return;
+
+  state.tabs.splice(index, 1);
+  if (state.active >= state.tabs.length) {
+    state.active = state.tabs.length - 1;
+  } else if (index < state.active) {
+    state.active -= 1;
+  }
+
+  save();
+  render();
 }
-
-// one side of the turning page
-function face(extra) {
-  const f = document.createElement("div");
-  Object.assign(f.style, {
-    position: "absolute", inset: "0", overflow: "hidden",
-    backfaceVisibility: "hidden", webkitBackfaceVisibility: "hidden",
-    boxShadow: "0 0 18px rgba(0, 0, 0, 0.3)"
-  }, extra);
-  return f;
-}
-
-// turns the old page's right side over to reveal the new page
-function flip(oldPage) {
-  const newPage = pagesEl.querySelector(".page.active");
-  if (!oldPage || !newPage) return;
-
-  // stop the new page's photos from animating in while the flip plays
-  newPage.querySelectorAll(".polaroid").forEach(function (p) {
-    p.style.animation = "none";
-  });
-
-  const wrap = document.createElement("div");
-  wrap.className = "flip-wrap";
-  Object.assign(wrap.style, {
-    position: "absolute", inset: "0", perspective: "3000px",
-    pointerEvents: "none", zIndex: "5"
-  });
-
-  // the old left side stays in place until the turning page lands on it
-  const leftCover = document.createElement("div");
-  Object.assign(leftCover.style, {
-    position: "absolute", top: "0", bottom: "0", left: "0",
-    width: "50%", overflow: "hidden"
-  });
-  leftCover.appendChild(ghost(oldPage, false));
-
-  const leaf = document.createElement("div");
-  Object.assign(leaf.style, {
-    position: "absolute", top: "0", bottom: "0", left: "50%", width: "50%",
-    transformOrigin: "left center", transformStyle: "preserve-3d"
-  });
-
-  const front = face();                              
-  front.appendChild(ghost(oldPage, true));
-
-  const back = face({ transform: "rotateY(180deg)" }); 
-  back.appendChild(ghost(newPage, false));
-
-  leaf.append(front, back);
-  wrap.append(leftCover, leaf);
-  newPage.appendChild(wrap);
-
-  const anim = leaf.animate(
-    [{ transform: "rotateY(0deg)" }, { transform: "rotateY(-180deg)" }],
-    { duration: 800, easing: "ease-in-out", fill: "forwards" }
-  );
-  anim.onfinish = function () { wrap.remove(); };
-}
-
-// ---------- your code ----------
 
 function render() {
   tabList.innerHTML = "";
@@ -114,16 +60,28 @@ function render() {
   state.tabs.forEach(function (tabData, index) {
     const isActive = index === state.active;
 
-    const tab = document.createElement("button");
+    const tab = document.createElement("div");
     tab.className = "tab" + (isActive ? " active" : "");
-    tab.textContent = tabData.name;
+
+    const label = document.createElement("span");
+    label.className = "tab-label";
+    label.textContent = tabData.name;
+
+    const del = document.createElement("button");
+    del.className = "tab-delete";
+    del.textContent = "×";
+    del.title = "Delete this tab";
+    del.addEventListener("click", function (event) {
+      event.stopPropagation();
+      deleteTab(index);
+    });
+
+    tab.appendChild(label);
+    tab.appendChild(del);
     tab.addEventListener("click", function () {
-      if (state.active === index) return;                     
-      const oldPage = pagesEl.querySelector(".page.active");  
       state.active = index;
       save();
       render();
-      flip(oldPage);                                        
     });
     tabList.appendChild(tab);
 
@@ -192,7 +150,8 @@ addButton.addEventListener("click", function () {
       caption: captionInput.value
     });
     save();
-    render();  
+    render();
+    photoInput.value = "";
     captionInput.value = "";
   });
 });
@@ -200,12 +159,10 @@ addButton.addEventListener("click", function () {
 newTabButton.addEventListener("click", function () {
   const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
   if (!name) return;
-  const oldPage = pagesEl.querySelector(".page.active"); 
   state.tabs.push({ name: name, photos: [] });
   state.active = state.tabs.length - 1;
   save();
   render();
-  flip(oldPage);                                       
 });
 
 render();

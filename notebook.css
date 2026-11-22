@@ -5,9 +5,10 @@
     --dot-gap: 24px;
 
     position: relative;
+    z-index: 1;
     max-width: 1000px;
     min-height: 70vh;
-    margin: 0 auto 60px;
+    margin: 0 0 60px 0 !important;
     padding: 36px 56px 48px;
 
     border: 16px solid var(--cover);
@@ -70,34 +71,8 @@
     background: rgba(104, 216, 244, 0.55);
 }
 
-@media (max-width: 700px) {
-    .page {
-        background-image:
-            radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
-        background-size: var(--dot-gap) var(--dot-gap);
-        background-position: 12px 12px;
-    }
-    .page #board,
-    .page .board {
-        grid-template-columns: 1fr;
-    }
-}
-
-.sidebar {
-    background: transparent;
-    border-right: none;
-    padding: 0;
-    width: 150px;
-}
-
 .content {
     padding-left: 0;
-}
-
-.page {
-    margin: 0 0 60px 0 !important;
-    position: relative;
-    z-index: 1;
 }
 
 #tabList {
@@ -110,6 +85,10 @@
 .tab {
     position: relative;
     z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     width: 130px;
     margin-right: 0;
     padding: 14px 24px 14px 14px;
@@ -118,8 +97,51 @@
     border-radius: 14px 0 0 14px;
     box-shadow: -3px 3px 5px rgba(0, 0, 0, 0.2);
     text-align: left;
+    cursor: pointer;
     transition: transform 0.15s;
 }
 
 .tab:hover  { transform: translateX(-8px); }
 .tab.active { transform: translateX(-16px); }
+
+.tab-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-delete {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    font-size: 16px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.12);
+    color: var(--dark);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.tab:hover .tab-delete,
+.tab.active .tab-delete {
+    opacity: 1;
+}
+.tab-delete:hover {
+    background: #e5534b;
+    color: white;
+}
+
+@media (max-width: 700px) {
+    .page {
+        background-image:
+            radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+        background-size: var(--dot-gap) var(--dot-gap);
+        background-position: 12px 12px;
+    }
+    .page #board,
+    .page .board {
+        grid-template-columns: 1fr;
+    }
+}
