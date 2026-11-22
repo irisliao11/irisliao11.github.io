@@ -321,8 +321,24 @@ function render() {
       });
 
 
+      const photoDel = document.createElement("button");
+      photoDel.className = "photo-delete";
+      photoDel.textContent = "×";
+      photoDel.title = "Delete photo";
+      photoDel.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (!confirm("Delete this photo?")) return;
+        state.tabs[index].photos.splice(i, 1);
+        save();
+        render();
+        document.querySelectorAll(".polaroid").forEach(function (p) {
+          p.style.animation = "none";
+        });
+      });
+
       polaroid.appendChild(img);
       polaroid.appendChild(caption);
+      polaroid.appendChild(photoDel);
       board.appendChild(polaroid);
     });
 
