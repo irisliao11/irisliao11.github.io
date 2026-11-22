@@ -63,7 +63,7 @@ function save() {
 
 let state = load() || {
   active: 0,
-  tabs: [{ name: "Moment 1", photos: [], sealedUntil: null }]
+  tabs: [{ name: "Moment 1", photos: [], stickers: [], sealedUntil: null }]
 };
 
 function isTabLocked(tab) {
@@ -84,22 +84,22 @@ function getLayout(photo, i) {
   return photo.layout;
 }
 
-function applyLayout(polaroid, L) {
-  polaroid.style.left = (L.cx * 100) + "%";
-  polaroid.style.top = L.y + "px";
-  polaroid.style.zIndex = L.z;
-  polaroid.style.setProperty("--s", L.s);
-  polaroid.style.transform =
+function applyLayout(item, L) {
+  item.style.left = (L.cx * 100) + "%";
+  item.style.top = L.y + "px";
+  item.style.zIndex = L.z;
+  item.style.setProperty("--s", L.s);
+  item.style.transform =
     `translateX(-50%) rotate(${L.r}deg) scale(${L.s})`;
 }
 
-function clampLayout(polaroid, L, board) {
+function clampLayout(item, L, board) {
   const bw = board.clientWidth;
   const bh = board.clientHeight;
   if (!bw || !bh) return;
 
-  const w = polaroid.offsetWidth;
-  const h = polaroid.offsetHeight;
+  const w = item.offsetWidth;
+  const h = item.offsetHeight;
 
   const halfW = (w * L.s) / 2 + 4;
   L.cx = Math.max(halfW / bw, Math.min(1 - halfW / bw, L.cx));
@@ -115,25 +115,28 @@ function topZ() {
     tab.photos.forEach((p) => {
       if (p.layout && p.layout.z > z) z = p.layout.z;
     });
+    (tab.stickers || []).forEach((s) => {
+      if (s.layout && s.layout.z > z) z = s.layout.z;
+    });
   });
   return z + 1;
 }
 
 let selectedEl = null;
 
-function selectPolaroid(polaroid) {
-  if (selectedEl && selectedEl !== polaroid) selectedEl.classList.remove("selected");
-  selectedEl = polaroid;
-  polaroid.classList.add("selected");
+function selectItem(item) {
+  if (selectedEl && selectedEl !== item) selectedEl.classList.remove("selected");
+  selectedEl = item;
+  item.classList.add("selected");
 }
 
-function deselectPolaroid() {
+function deselectItem() {
   if (selectedEl) selectedEl.classList.remove("selected");
   selectedEl = null;
 }
 
-function track(polaroid, startEvent, onMove, onEnd) {
-  polaroid.classList.add("dragging");
+function track(item, startEvent, onMove, onEnd) {
+  item.classList.add("dragging");
 
   function move(e) {
     if (e.pointerId === startEvent.pointerId) onMove(e);
@@ -143,7 +146,7 @@ function track(polaroid, startEvent, onMove, onEnd) {
     window.removeEventListener("pointermove", move);
     window.removeEventListener("pointerup", up);
     window.removeEventListener("pointercancel", up);
-    polaroid.classList.remove("dragging");
+    item.classList.remove("dragging");
     onEnd(e);
   }
   window.addEventListener("pointermove", move);
@@ -151,16 +154,16 @@ function track(polaroid, startEvent, onMove, onEnd) {
   window.addEventListener("pointercancel", up);
 }
 
-function enableDrag(polaroid, L) {
-  polaroid.addEventListener("pointerdown", (e) => {
+function enableDrag(item, L) {
+  item.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest(".caption-input, .polaroid-tools, .rot-handle")) return;
 
-    selectPolaroid(polaroid);
+    selectItem(item);
     L.z = topZ();
-    polaroid.style.zIndex = L.z;
+    item.style.zIndex = L.z;
 
-    const board = polaroid.parentElement;
+    const board = item.parentElement;
     const boardWidth = board.clientWidth;
     const startX = e.clientX;
     const startY = e.clientY;
@@ -168,20 +171,20 @@ function enableDrag(polaroid, L) {
     const startTop = L.y;
     let moved = false;
 
-    track(polaroid, e, (ev) => {
+    track(item, e, (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       L.cx = startCx + dx / boardWidth;
       L.y = startTop + dy;
-      clampLayout(polaroid, L, board);
-      applyLayout(polaroid, L);
+      clampLayout(item, L, board);
+      applyLayout(item, L);
     }, save);
   });
 }
 
-function addRotateHandles(polaroid, L) {
+function addRotateHandles(item, L) {
   ["tl", "tr", "bl", "br"].forEach((pos) => {
     const handle = el("div", "rot-handle " + pos);
     handle.title = "Drag to rotate (hold Shift to snap)";
@@ -191,32 +194,32 @@ function addRotateHandles(polaroid, L) {
       e.stopPropagation();
       e.preventDefault();
 
-      const r = polaroid.getBoundingClientRect();
+      const r = item.getBoundingClientRect();
       const cx = r.left + r.width / 2;
       const cy = r.top + r.height / 2;
       const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
       const startRot = L.r;
 
-      track(polaroid, e, (ev) => {
+      track(item, e, (ev) => {
         const angle = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI;
         let rot = startRot + (angle - startAngle);
         if (ev.shiftKey) rot = Math.round(rot / SNAP_DEGREES) * SNAP_DEGREES;
         L.r = Math.round(rot * 10) / 10;
-        applyLayout(polaroid, L);
+        applyLayout(item, L);
       }, save);
     });
 
-    polaroid.appendChild(handle);
+    item.appendChild(handle);
   });
 }
 
-function addResizeTools(polaroid, L) {
+function addResizeTools(item, L) {
   const tools = el("div", "polaroid-tools");
 
   function resize(step) {
     L.s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round((L.s + step) * 100) / 100));
-    clampLayout(polaroid, L, polaroid.parentElement);
-    applyLayout(polaroid, L);
+    clampLayout(item, L, item.parentElement);
+    applyLayout(item, L);
     save();
   }
 
@@ -235,13 +238,13 @@ function addResizeTools(polaroid, L) {
   });
 
   tools.append(minus, plus);
-  polaroid.appendChild(tools);
+  item.appendChild(tools);
 }
 
-function makeInteractive(polaroid, L) {
-  enableDrag(polaroid, L);
-  addRotateHandles(polaroid, L);
-  addResizeTools(polaroid, L);
+function makeInteractive(item, L) {
+  enableDrag(item, L);
+  addRotateHandles(item, L);
+  addResizeTools(item, L);
 }
 
 function ghost(page, showRight) {
@@ -257,10 +260,12 @@ function ghost(page, showRight) {
   });
 
   c.querySelectorAll(".rot-handle, .polaroid-tools").forEach((node) => node.remove());
-  c.querySelectorAll(".polaroid").forEach((p) => {
+  c.querySelectorAll(".polaroid, .sticker-item").forEach((p) => {
     p.classList.remove("selected", "dragging");
     p.style.transition = "none";
-    p.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.3)";
+    if (p.classList.contains("polaroid")) {
+      p.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.3)";
+    }
   });
 
   Object.assign(c.style, {
@@ -289,7 +294,7 @@ function flip(oldPage, backward) {
   const newPage = pagesEl.querySelector(".page.active");
   if (!oldPage || !newPage) return;
 
-  newPage.querySelectorAll(".polaroid").forEach((p) => {
+  newPage.querySelectorAll(".polaroid, .sticker-item").forEach((p) => {
     p.style.animation = "none";
   });
 
@@ -423,7 +428,7 @@ function addTab() {
   const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
   if (!name) return;
   const oldPage = pagesEl.querySelector(".page.active");
-  state.tabs.push({ name: name, photos: [], sealedUntil: null });
+  state.tabs.push({ name: name, photos: [], stickers: [], sealedUntil: null });
   state.active = state.tabs.length - 1;
   save();
   render();
@@ -445,7 +450,18 @@ function deletePhoto(tabIndex, photoIndex) {
   save();
   render();
 
-  document.querySelectorAll(".polaroid").forEach((p) => {
+  document.querySelectorAll(".polaroid, .sticker-item").forEach((p) => {
+    p.style.animation = "none";
+  });
+}
+
+function deleteSticker(tabIndex, stickerIndex) {
+  if (isTabLocked(state.tabs[tabIndex])) return;
+  state.tabs[tabIndex].stickers.splice(stickerIndex, 1);
+  save();
+  render();
+
+  document.querySelectorAll(".polaroid, .sticker-item").forEach((p) => {
     p.style.animation = "none";
   });
 }
@@ -569,6 +585,66 @@ function buildPolaroid(photo, tabIndex, photoIndex) {
   return polaroid;
 }
 
+function buildSticker(stickerData, tabIndex, stickerIndex) {
+  if (!stickerData.layout) {
+    stickerData.layout = { cx: 0.5, y: 260, r: 0, s: 1, z: topZ() };
+  }
+  const L = stickerData.layout;
+
+  const sticker = el("div", "sticker-item", stickerData.char);
+  sticker._L = L;
+  applyLayout(sticker, L);
+
+  sticker.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeMenu();
+
+    menu = el("div", "photo-menu");
+    const deleteBtn = el("button", "danger", "delete sticker");
+    deleteBtn.addEventListener("click", () => {
+      closeMenu();
+      deleteSticker(tabIndex, stickerIndex);
+    });
+    menu.append(deleteBtn);
+    document.body.appendChild(menu);
+
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.min(e.clientX, window.innerWidth - r.width - 8) + "px";
+    menu.style.top = Math.min(e.clientY, window.innerHeight - r.height - 8) + "px";
+  });
+
+  makeInteractive(sticker, L);
+  return sticker;
+}
+
+function addSticker(char) {
+  const tab = state.tabs[state.active];
+  if (isTabLocked(tab)) {
+    alert(`"${tab.name}" is sealed until ${formatDate(tab.sealedUntil)}. ` +
+          "Switch to another tab to add stickers.");
+    return;
+  }
+  if (!tab.stickers) tab.stickers = [];
+
+  tab.stickers.push({
+    char,
+    layout: {
+      cx: 0.45 + Math.random() * 0.1,
+      y: 220 + Math.round(Math.random() * 80),
+      r: Math.round((Math.random() - 0.5) * 20),
+      s: 1,
+      z: topZ()
+    }
+  });
+  save();
+  render();
+
+  document.querySelectorAll(".polaroid").forEach((p) => {
+    p.style.animation = "none";
+  });
+}
+
 function buildLockCover(tabData) {
   const n = tabData.photos.length;
   const cover = el("div", "page-lock");
@@ -617,6 +693,9 @@ function buildPage(tabData, index) {
     tabData.photos.forEach((photo, i) => {
       board.appendChild(buildPolaroid(photo, index, i));
     });
+    (tabData.stickers || []).forEach((sticker, i) => {
+      board.appendChild(buildSticker(sticker, index, i));
+    });
   }
   page.appendChild(board);
 
@@ -636,10 +715,10 @@ function render() {
     pagesEl.appendChild(buildPage(tabData, index));
   });
 
-  document.querySelectorAll(".page.active .polaroid").forEach((p) => {
-    if (!p._L) return;
-    clampLayout(p, p._L, p.parentElement);
-    applyLayout(p, p._L);
+  document.querySelectorAll(".page.active .polaroid, .page.active .sticker-item").forEach((item) => {
+    if (!item._L) return;
+    clampLayout(item, item._L, item.parentElement);
+    applyLayout(item, item._L);
   });
 }
 
@@ -691,8 +770,12 @@ addButton.addEventListener("click", addPhoto);
 newTabButton.addEventListener("click", addTab);
 sealButton.addEventListener("click", sealActiveTab);
 
+document.querySelectorAll(".sticker-btn").forEach((btn) => {
+  btn.addEventListener("click", () => addSticker(btn.dataset.sticker));
+});
+
 document.addEventListener("pointerdown", (e) => {
-  if (!e.target.closest(".polaroid")) deselectPolaroid();
+  if (!e.target.closest(".polaroid, .sticker-item")) deselectItem();
 });
 
 document.addEventListener("click", closeMenu);
@@ -701,6 +784,5 @@ window.addEventListener("scroll", closeMenu);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeMenu();
 });
-
 setInterval(tick, 1000);
 render();
