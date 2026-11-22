@@ -1,4 +1,45 @@
+/* ==========================================================
+   Time capsule
+   ----------------------------------------------------------
+   1. Config and DOM references
+   2. Small helpers
+   3. State and storage
+   4. Polaroid layout (position, rotation, scale)
+   5. Selecting, dragging, rotating, resizing
+   6. Page-flip animation
+   7. Sealing and the countdown
+   8. Tabs
+   9. Photo menu and caption editing
+  10. Rendering
+  11. Adding photos
+  12. Event wiring and startup
+   ========================================================== */
+
+
+/* ---------- 1. Config and DOM references ---------- */
+
 const STORAGE_KEY = "timeCapsule";
+
+// default polaroid placement
+const COL_X = [0.25, 0.75];   // column centers, as a fraction of board width
+const FIRST_Y = 90;
+const ROW_STEP = 310;
+
+// polaroid interaction
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 2.5;
+const SCALE_STEP = 0.1;
+const DRAG_THRESHOLD = 4;     // px of movement before a press counts as a drag
+const SNAP_DEGREES = 15;      // rotation snap when Shift is held
+
+// uploaded photos
+const MAX_IMAGE_SIZE = 450;
+const JPEG_QUALITY = 0.75;
+
+// page flip: a larger perspective is a weaker 3D effect, so the leaf
+// doesn't grow past the page edges (and get clipped) mid-flip
+const FLIP_MS = 700;
+const FLIP_PERSPECTIVE = "9000px";
 
 const photoInput = document.getElementById("photo");
 const captionInput = document.getElementById("caption");
@@ -9,6 +50,32 @@ const pagesEl = document.getElementById("pages");
 const pageTemplate = document.getElementById("pageTemplate");
 const openDateInput = document.getElementById("openDate");
 const sealButton = document.getElementById("seal");
+
+
+/* ---------- 2. Small helpers ---------- */
+
+// create an element with an optional class and text
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function formatDate(ms) {
+  return new Date(ms).toLocaleString();
+}
+
+function formatLeft(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return `${d}d ${h}h ${m}m ${s % 60}s`;
+}
+
+
+/* ---------- 3. State and storage ---------- */
 
 function load() {
   try {
@@ -25,16 +92,22 @@ function save() {
     alert("Storage is full! Try smaller photos or fewer of them.");
   }
 }
+
 let state = load() || {
   active: 0,
   tabs: [{ name: "Moment 1", photos: [], sealedUntil: null }]
 };
-delete state.sealedUntil;
 
-const COL_X = [0.25, 0.75];
-const FIRST_Y = 90;
-const ROW_STEP = 310;
+function isTabLocked(tab) {
+  return !!tab.sealedUntil && Date.now() < tab.sealedUntil;
+}
 
+
+/* ---------- 4. Polaroid layout ---------- */
+
+// every photo stores its own spot: { cx, y, r, s, z }
+//   cx = horizontal center (fraction of board width)   y = top (px)
+//   r  = rotation (deg)   s = scale   z = stacking order
 function getLayout(photo, i) {
   if (!photo.layout) {
     const wave = Math.floor(i / 4);
@@ -49,21 +122,23 @@ function getLayout(photo, i) {
   return photo.layout;
 }
 
-function applyLayout(el, L) {
-  el.style.left = (L.cx * 100) + "%";
-  el.style.top = L.y + "px";
-  el.style.zIndex = L.z;
-  el.style.setProperty("--s", L.s);
-  el.style.transform =
-    "translateX(-50%) rotate(" + L.r + "deg) scale(" + L.s + ")";
+function applyLayout(polaroid, L) {
+  polaroid.style.left = (L.cx * 100) + "%";
+  polaroid.style.top = L.y + "px";
+  polaroid.style.zIndex = L.z;
+  polaroid.style.setProperty("--s", L.s);
+  polaroid.style.transform =
+    `translateX(-50%) rotate(${L.r}deg) scale(${L.s})`;
 }
-function clampLayout(el, L, board) {
+
+// keep a polaroid fully inside the board
+function clampLayout(polaroid, L, board) {
   const bw = board.clientWidth;
   const bh = board.clientHeight;
   if (!bw || !bh) return;
 
-  const w = el.offsetWidth;
-  const h = el.offsetHeight;
+  const w = polaroid.offsetWidth;
+  const h = polaroid.offsetHeight;
 
   const halfW = (w * L.s) / 2 + 4;
   L.cx = Math.max(halfW / bw, Math.min(1 - halfW / bw, L.cx));
@@ -72,22 +147,27 @@ function clampLayout(el, L, board) {
   const maxY = bh - 4 - (h * (1 + L.s)) / 2;
   L.y = Math.max(minY, Math.min(maxY, L.y));
 }
+
+// next z-index that puts a photo on top of every other photo
 function topZ() {
   let z = 1;
-  state.tabs.forEach(function (t) {
-    t.photos.forEach(function (p) {
+  state.tabs.forEach((tab) => {
+    tab.photos.forEach((p) => {
       if (p.layout && p.layout.z > z) z = p.layout.z;
     });
   });
   return z + 1;
 }
 
+
+/* ---------- 5. Selecting, dragging, rotating, resizing ---------- */
+
 let selectedEl = null;
 
-function selectPolaroid(el) {
-  if (selectedEl && selectedEl !== el) selectedEl.classList.remove("selected");
-  selectedEl = el;
-  el.classList.add("selected");
+function selectPolaroid(polaroid) {
+  if (selectedEl && selectedEl !== polaroid) selectedEl.classList.remove("selected");
+  selectedEl = polaroid;
+  polaroid.classList.add("selected");
 }
 
 function deselectPolaroid() {
@@ -95,10 +175,7 @@ function deselectPolaroid() {
   selectedEl = null;
 }
 
-document.addEventListener("pointerdown", function (e) {
-  if (!e.target.closest(".polaroid")) deselectPolaroid();
-});
-
+// follow one pointer until it is released
 function track(polaroid, startEvent, onMove, onEnd) {
   polaroid.classList.add("dragging");
 
@@ -117,8 +194,10 @@ function track(polaroid, startEvent, onMove, onEnd) {
   window.addEventListener("pointerup", up);
   window.addEventListener("pointercancel", up);
 }
-function makeInteractive(polaroid, L) {
-  polaroid.addEventListener("pointerdown", function (e) {
+
+// press and drag the photo to move it
+function enableDrag(polaroid, L) {
+  polaroid.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
     if (e.target.closest(".caption-input, .polaroid-tools, .rot-handle")) return;
 
@@ -134,10 +213,10 @@ function makeInteractive(polaroid, L) {
     const startTop = L.y;
     let moved = false;
 
-    track(polaroid, e, function (ev) {
+    track(polaroid, e, (ev) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
-      if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+      if (!moved && Math.abs(dx) + Math.abs(dy) < DRAG_THRESHOLD) return;
       moved = true;
       L.cx = startCx + dx / boardWidth;
       L.y = startTop + dy;
@@ -145,13 +224,15 @@ function makeInteractive(polaroid, L) {
       applyLayout(polaroid, L);
     }, save);
   });
+}
 
-  ["tl", "tr", "bl", "br"].forEach(function (pos) {
-    const handle = document.createElement("div");
-    handle.className = "rot-handle " + pos;
+// a rotate handle on each corner (hold Shift to snap)
+function addRotateHandles(polaroid, L) {
+  ["tl", "tr", "bl", "br"].forEach((pos) => {
+    const handle = el("div", "rot-handle " + pos);
     handle.title = "Drag to rotate (hold Shift to snap)";
 
-    handle.addEventListener("pointerdown", function (e) {
+    handle.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       e.stopPropagation();
       e.preventDefault();
@@ -162,10 +243,10 @@ function makeInteractive(polaroid, L) {
       const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
       const startRot = L.r;
 
-      track(polaroid, e, function (ev) {
+      track(polaroid, e, (ev) => {
         const angle = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI;
         let rot = startRot + (angle - startAngle);
-        if (ev.shiftKey) rot = Math.round(rot / 15) * 15;
+        if (ev.shiftKey) rot = Math.round(rot / SNAP_DEGREES) * SNAP_DEGREES;
         L.r = Math.round(rot * 10) / 10;
         applyLayout(polaroid, L);
       }, save);
@@ -173,52 +254,63 @@ function makeInteractive(polaroid, L) {
 
     polaroid.appendChild(handle);
   });
+}
 
-  const tools = document.createElement("div");
-  tools.className = "polaroid-tools";
-
-  const minus = document.createElement("button");
-  minus.textContent = "−";
-  minus.title = "Smaller";
-
-  const plus = document.createElement("button");
-  plus.textContent = "+";
-  plus.title = "Bigger";
+// "-" and "+" buttons under the photo
+function addResizeTools(polaroid, L) {
+  const tools = el("div", "polaroid-tools");
 
   function resize(step) {
-    L.s = Math.min(2.5, Math.max(0.4, Math.round((L.s + step) * 100) / 100));
+    L.s = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round((L.s + step) * 100) / 100));
     clampLayout(polaroid, L, polaroid.parentElement);
     applyLayout(polaroid, L);
     save();
   }
-  minus.addEventListener("click", function (e) {
+
+  const minus = el("button", "", "−");
+  minus.title = "Smaller";
+  minus.addEventListener("click", (e) => {
     e.stopPropagation();
-    resize(-0.1);
+    resize(-SCALE_STEP);
   });
-  plus.addEventListener("click", function (e) {
+
+  const plus = el("button", "", "+");
+  plus.title = "Bigger";
+  plus.addEventListener("click", (e) => {
     e.stopPropagation();
-    resize(0.1);
+    resize(SCALE_STEP);
   });
 
   tools.append(minus, plus);
   polaroid.appendChild(tools);
 }
 
+function makeInteractive(polaroid, L) {
+  enableDrag(polaroid, L);
+  addRotateHandles(polaroid, L);
+  addResizeTools(polaroid, L);
+}
+
+
+/* ---------- 6. Page-flip animation ---------- */
+
+// a static copy of a page, used as one face of the turning leaf
+// (showRight = show the page's right half, otherwise its left half)
 function ghost(page, showRight) {
   const c = page.cloneNode(true);
   c.style.setProperty("--ghost", "1");
-  c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
-  c.querySelectorAll("*").forEach(function (el) { el.style.animation = "none"; });
-  c.querySelectorAll(".page-lock").forEach(function (el) {
-    el.style.backdropFilter = "none";
-    el.style.webkitBackdropFilter = "none";
-    el.style.background = "rgba(226, 241, 252, 0.97)";
+  c.querySelectorAll(".flip-wrap").forEach((node) => node.remove());
+  c.querySelectorAll("*").forEach((node) => { node.style.animation = "none"; });
+
+  // blur is expensive to animate, so the copies use a flat frosted color
+  c.querySelectorAll(".page-lock").forEach((node) => {
+    node.style.backdropFilter = "none";
+    node.style.webkitBackdropFilter = "none";
+    node.style.background = "rgba(226, 241, 252, 0.97)";
   });
 
-  c.querySelectorAll(".rot-handle, .polaroid-tools").forEach(function (el) {
-    el.remove();
-  });
-  c.querySelectorAll(".polaroid").forEach(function (p) {
+  c.querySelectorAll(".rot-handle, .polaroid-tools").forEach((node) => node.remove());
+  c.querySelectorAll(".polaroid").forEach((p) => {
     p.classList.remove("selected", "dragging");
     p.style.transition = "none";
     p.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.3)";
@@ -236,8 +328,9 @@ function ghost(page, showRight) {
   return c;
 }
 
+// one side of the leaf
 function face(extra) {
-  const f = document.createElement("div");
+  const f = el("div");
   Object.assign(f.style, {
     position: "absolute", inset: "0", overflow: "hidden",
     backfaceVisibility: "hidden", webkitBackfaceVisibility: "hidden",
@@ -250,78 +343,64 @@ function flip(oldPage, backward) {
   const newPage = pagesEl.querySelector(".page.active");
   if (!oldPage || !newPage) return;
 
-  newPage.querySelectorAll(".polaroid").forEach(function (p) {
+  // don't replay the photo entrance animation under the flip
+  newPage.querySelectorAll(".polaroid").forEach((p) => {
     p.style.animation = "none";
   });
 
-  const wrap = document.createElement("div");
-  wrap.className = "flip-wrap";
+  const wrap = el("div", "flip-wrap");
   Object.assign(wrap.style, {
-    position: "absolute", inset: "0", perspective: "9000px",
+    position: "absolute", inset: "0", perspective: FLIP_PERSPECTIVE,
     pointerEvents: "none", zIndex: "100000"
   });
 
-  const cover = document.createElement("div");
+  // the half of the old page that stays put while the leaf turns
+  const cover = el("div");
   Object.assign(cover.style, {
     position: "absolute", top: "0", bottom: "0",
-    width: "50%", overflow: "hidden"
+    width: "50%", overflow: "hidden",
+    left: backward ? "50%" : "0"
   });
-  if (backward) {
-    cover.style.left = "50%";
-    cover.appendChild(ghost(oldPage, true));
-  } else {
-    cover.style.left = "0";
-    cover.appendChild(ghost(oldPage, false));
-  }
+  cover.appendChild(ghost(oldPage, backward));
 
-  const leaf = document.createElement("div");
+  // the leaf, hinged at the spine
+  const leaf = el("div");
   Object.assign(leaf.style, {
     position: "absolute", top: "0", bottom: "0", left: "50%", width: "50%",
-    transformOrigin: "left center", transformStyle: "preserve-3d"
+    transformOrigin: "left center", transformStyle: "preserve-3d",
+    willChange: "transform"
   });
-  leaf.style.willChange = "transform";
 
+  const [frontPage, backPage] = backward ? [newPage, oldPage] : [oldPage, newPage];
   const front = face();
   const back = face({ transform: "rotateY(180deg)" });
-  if (backward) {
-    front.appendChild(ghost(newPage, true));
-    back.appendChild(ghost(oldPage, false));
-  } else {
-    front.appendChild(ghost(oldPage, true));
-    back.appendChild(ghost(newPage, false));
-  }
+  front.appendChild(ghost(frontPage, true));
+  back.appendChild(ghost(backPage, false));
 
   leaf.append(front, back);
   wrap.append(cover, leaf);
   newPage.appendChild(wrap);
 
-  const frames = backward
-    ? [{ transform: "rotateY(-180deg)" }, { transform: "rotateY(0deg)" }]
-    : [{ transform: "rotateY(0deg)" }, { transform: "rotateY(-180deg)" }];
+  const flat = "rotateY(0deg)";
+  const turned = "rotateY(-180deg)";
+  const [from, to] = backward ? [turned, flat] : [flat, turned];
 
-  const anim = leaf.animate(frames, {
-    duration: 700, easing: "ease-in-out", fill: "forwards"
-  });
-  anim.onfinish = function () { wrap.remove(); };
+  const anim = leaf.animate(
+    [{ transform: from }, { transform: to }],
+    { duration: FLIP_MS, easing: "ease-in-out", fill: "forwards" }
+  );
+  anim.onfinish = () => wrap.remove();
 }
 
-function isTabLocked(tab) {
-  return !!tab.sealedUntil && Date.now() < tab.sealedUntil;
-}
 
-function formatLeft(ms) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return d + "d " + h + "h " + m + "m " + (s % 60) + "s";
-}
+/* ---------- 7. Sealing and the countdown ---------- */
 
+// every second: unlock tabs whose time has come, update countdowns
 function tick() {
   const now = Date.now();
   let thawed = false;
 
-  state.tabs.forEach(function (t) {
+  state.tabs.forEach((t) => {
     if (t.sealedUntil && now >= t.sealedUntil) {
       t.sealedUntil = null;
       t.thawPending = true;
@@ -335,17 +414,16 @@ function tick() {
     return;
   }
 
-  document.querySelectorAll(".page > .page-lock .countdown").forEach(function (el) {
-    el.textContent = formatLeft(Number(el.dataset.until) - now);
+  document.querySelectorAll(".page > .page-lock .countdown").forEach((node) => {
+    node.textContent = formatLeft(Number(node.dataset.until) - now);
   });
 }
-setInterval(tick, 1000);
 
-sealButton.addEventListener("click", function () {
+function sealActiveTab() {
   const tab = state.tabs[state.active];
 
   if (isTabLocked(tab)) {
-    alert('"' + tab.name + '" is already sealed.');
+    alert(`"${tab.name}" is already sealed.`);
     return;
   }
   if (!openDateInput.value) {
@@ -357,21 +435,23 @@ sealButton.addEventListener("click", function () {
     alert("Pick a date in the future!");
     return;
   }
-  if (!confirm('Seal "' + tab.name + '" until ' + new Date(when).toLocaleString() +
-               "? You won't be able to change it until then.")) return;
+  if (!confirm(`Seal "${tab.name}" until ${formatDate(when)}? ` +
+               "You won't be able to change it until then.")) return;
 
   tab.sealedUntil = when;
   tab.thawPending = false;
   save();
   render();
-});
+}
+
+
+/* ---------- 8. Tabs ---------- */
 
 function deleteTab(index) {
   const tab = state.tabs[index];
 
   if (isTabLocked(tab)) {
-    alert('"' + tab.name + '" is sealed until ' +
-          new Date(tab.sealedUntil).toLocaleString() + ", so it can't be deleted.");
+    alert(`"${tab.name}" is sealed until ${formatDate(tab.sealedUntil)}, so it can't be deleted.`);
     return;
   }
   if (state.tabs.length === 1) {
@@ -381,8 +461,8 @@ function deleteTab(index) {
 
   const count = tab.photos.length;
   const warning = count > 0
-    ? 'Delete "' + tab.name + '" and its ' + count + " photo(s)? This can't be undone."
-    : 'Delete "' + tab.name + '"?';
+    ? `Delete "${tab.name}" and its ${count} photo(s)? This can't be undone.`
+    : `Delete "${tab.name}"?`;
   if (!confirm(warning)) return;
 
   state.tabs.splice(index, 1);
@@ -396,13 +476,26 @@ function deleteTab(index) {
 }
 
 function renameTab(index) {
-  const current = state.tabs[index].name;
-  const name = prompt("Rename this moment:", current);
+  const name = prompt("Rename this moment:", state.tabs[index].name);
   if (name === null || name.trim() === "") return;
   state.tabs[index].name = name.trim();
   save();
   render();
 }
+
+function addTab() {
+  const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
+  if (!name) return;
+  const oldPage = pagesEl.querySelector(".page.active");
+  state.tabs.push({ name: name, photos: [], sealedUntil: null });
+  state.active = state.tabs.length - 1;
+  save();
+  render();
+  flip(oldPage);
+}
+
+
+/* ---------- 9. Photo menu and caption editing ---------- */
 
 let menu = null;
 
@@ -412,52 +505,23 @@ function closeMenu() {
     menu = null;
   }
 }
+
 function deletePhoto(tabIndex, photoIndex) {
   if (isTabLocked(state.tabs[tabIndex])) return;
   state.tabs[tabIndex].photos.splice(photoIndex, 1);
   save();
   render();
-  document.querySelectorAll(".polaroid").forEach(function (p) {
+  // stop the remaining photos from replaying their entrance animation
+  document.querySelectorAll(".polaroid").forEach((p) => {
     p.style.animation = "none";
   });
-}
-
-function showMenu(x, y, tabIndex, photoIndex, captionEl) {
-  closeMenu();
-
-  menu = document.createElement("div");
-  menu.className = "photo-menu";
-
-  const editBtn = document.createElement("button");
-  editBtn.textContent = "edit description";
-  editBtn.addEventListener("click", function () {
-    closeMenu();
-    editCaption(captionEl, tabIndex, photoIndex);
-  });
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.className = "danger";
-  deleteBtn.textContent = "delete photo";
-  deleteBtn.addEventListener("click", function () {
-    closeMenu();
-    if (!confirm("Delete this photo?")) return;
-    deletePhoto(tabIndex, photoIndex);
-  });
-
-  menu.append(editBtn, deleteBtn);
-  document.body.appendChild(menu);
-
-  const r = menu.getBoundingClientRect();
-  menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
-  menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
 }
 
 function editCaption(captionEl, tabIndex, photoIndex) {
   const photo = state.tabs[tabIndex].photos[photoIndex];
 
-  const input = document.createElement("input");
+  const input = el("input", "caption-input");
   input.type = "text";
-  input.className = "caption-input";
   input.value = photo.caption;
   captionEl.replaceWith(input);
   input.focus();
@@ -475,206 +539,217 @@ function editCaption(captionEl, tabIndex, photoIndex) {
     input.replaceWith(captionEl);
   }
 
-  input.addEventListener("keydown", function (e) {
+  input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") finish(true);
     if (e.key === "Escape") finish(false);
   });
-  input.addEventListener("blur", function () {
-    finish(true);
-  });
+  input.addEventListener("blur", () => finish(true));
 }
 
-document.addEventListener("click", closeMenu);
-document.addEventListener("contextmenu", closeMenu);
-window.addEventListener("scroll", closeMenu);
-document.addEventListener("keydown", function (e) {
-  if (e.key === "Escape") closeMenu();
-});
+// right-click menu for a photo
+function showMenu(x, y, tabIndex, photoIndex, captionEl) {
+  closeMenu();
+
+  menu = el("div", "photo-menu");
+
+  const editBtn = el("button", "", "edit description");
+  editBtn.addEventListener("click", () => {
+    closeMenu();
+    editCaption(captionEl, tabIndex, photoIndex);
+  });
+
+  const deleteBtn = el("button", "danger", "delete photo");
+  deleteBtn.addEventListener("click", () => {
+    closeMenu();
+    if (!confirm("Delete this photo?")) return;
+    deletePhoto(tabIndex, photoIndex);
+  });
+
+  menu.append(editBtn, deleteBtn);
+  document.body.appendChild(menu);
+
+  // keep the menu on screen
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
+  menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
+}
+
+
+/* ---------- 10. Rendering ---------- */
+
+function buildTab(tabData, index) {
+  const tab = el("div", "tab" + (index === state.active ? " active" : ""));
+  tab.title = "Double-click to rename";
+
+  const label = el("span", "tab-label", tabData.name);
+  if (isTabLocked(tabData)) label.prepend(el("span", "tab-lock", "🔒"));
+
+  const edit = el("button", "tab-edit", "✎");
+  edit.title = "Rename this tab";
+  edit.addEventListener("click", (e) => {
+    e.stopPropagation();
+    renameTab(index);
+  });
+
+  const del = el("button", "tab-delete", "×");
+  del.title = "Delete this tab";
+  del.addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteTab(index);
+  });
+
+  tab.append(label, edit, del);
+
+  tab.addEventListener("click", () => {
+    if (state.active === index) return;
+    const oldPage = pagesEl.querySelector(".page.active");
+    const backward = index < state.active;
+    state.active = index;
+    save();
+    render();
+    flip(oldPage, backward);
+  });
+  tab.addEventListener("dblclick", () => renameTab(index));
+
+  return tab;
+}
+
+function buildPolaroid(photo, tabIndex, photoIndex) {
+  const L = getLayout(photo, photoIndex);
+
+  const polaroid = el("div", "polaroid");
+  polaroid.style.setProperty("--i", photoIndex);   // staggers the entrance animation
+  polaroid._L = L;
+  applyLayout(polaroid, L);
+
+  const img = el("img");
+  img.src = photo.src;
+  img.draggable = false;
+
+  const caption = el("p", "", photo.caption);
+  polaroid.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showMenu(e.clientX, e.clientY, tabIndex, photoIndex, caption);
+  });
+  caption.addEventListener("dblclick", () => {
+    editCaption(caption, tabIndex, photoIndex);
+  });
+
+  polaroid.append(img, caption);
+  makeInteractive(polaroid, L);
+  return polaroid;
+}
+
+// "frozen" overlay with a live countdown
+function buildLockCover(tabData) {
+  const n = tabData.photos.length;
+  const cover = el("div", "page-lock");
+  cover.innerHTML =
+    '<div class="lock-card">' +
+      "<h2>frozen</h2>" +
+      "<p>this moment opens on<br><strong></strong></p>" +
+      `<p>${n} photo${n === 1 ? "" : "s"} inside</p>` +
+      '<div class="countdown"></div>' +
+    "</div>";
+  cover.querySelector("strong").textContent = formatDate(tabData.sealedUntil);
+
+  const countdown = cover.querySelector(".countdown");
+  countdown.dataset.until = tabData.sealedUntil;
+  countdown.textContent = formatLeft(tabData.sealedUntil - Date.now());
+  return cover;
+}
+
+// "it's time!" overlay shown once a sealed tab unlocks
+function buildThawCover(tabData) {
+  const cover = el("div", "page-lock");
+  cover.innerHTML =
+    '<div class="lock-card">' +
+      "<h2>it's time!</h2>" +
+      "<p>this moment has thawed.<br>see what you froze.</p>" +
+      "<button>open this moment</button>" +
+    "</div>";
+  cover.querySelector("button").addEventListener("click", () => {
+    tabData.thawPending = false;
+    save();
+    render();
+  });
+  return cover;
+}
+
+function buildPage(tabData, index) {
+  const locked = isTabLocked(tabData);
+
+  const page = el("div", "page" + (index === state.active ? " active" : ""));
+  page.appendChild(pageTemplate.content.cloneNode(true));
+  page.querySelector("h2").textContent = tabData.name;
+
+  // every photo gets a saved spot, even while the tab is sealed
+  tabData.photos.forEach((photo, i) => getLayout(photo, i));
+
+  const board = el("div", "board");
+  if (!locked) {
+    tabData.photos.forEach((photo, i) => {
+      board.appendChild(buildPolaroid(photo, index, i));
+    });
+  }
+  page.appendChild(board);
+
+  if (locked) page.appendChild(buildLockCover(tabData));
+  if (tabData.thawPending) page.appendChild(buildThawCover(tabData));
+
+  return page;
+}
 
 function render() {
   selectedEl = null;
   tabList.innerHTML = "";
   pagesEl.innerHTML = "";
 
-  state.tabs.forEach(function (tabData, index) {
-    const isActive = index === state.active;
-    const locked = isTabLocked(tabData);
-
-    const tab = document.createElement("div");
-    tab.className = "tab" + (isActive ? " active" : "");
-    tab.title = "Double-click to rename";
-
-    const label = document.createElement("span");
-    label.className = "tab-label";
-    label.textContent = tabData.name;
-    if (locked) {
-      const lockIcon = document.createElement("span");
-      lockIcon.className = "tab-lock";
-      lockIcon.textContent = "🔒";
-      label.prepend(lockIcon);
-    }
-
-    const edit = document.createElement("button");
-    edit.className = "tab-edit";
-    edit.textContent = "✎";
-    edit.title = "Rename this tab";
-    edit.addEventListener("click", function (event) {
-      event.stopPropagation();
-      renameTab(index);
-    });
-
-    const del = document.createElement("button");
-    del.className = "tab-delete";
-    del.textContent = "×";
-    del.title = "Delete this tab";
-    del.addEventListener("click", function (event) {
-      event.stopPropagation();
-      deleteTab(index);
-    });
-
-    tab.appendChild(label);
-    tab.appendChild(edit);
-    tab.appendChild(del);
-
-    tab.addEventListener("click", function () {
-      if (state.active === index) return;
-      const oldPage = pagesEl.querySelector(".page.active");
-      const backward = index < state.active;
-      state.active = index;
-      save();
-      render();
-      flip(oldPage, backward);
-    });
-    tab.addEventListener("dblclick", function () {
-      renameTab(index);
-    });
-    tabList.appendChild(tab);
-
-
-    const page = document.createElement("div");
-    page.className = "page" + (isActive ? " active" : "");
-    page.appendChild(pageTemplate.content.cloneNode(true));
-    page.querySelector("h2").textContent = tabData.name;
-
-
-    const board = document.createElement("div");
-    board.className = "board";
-
-    // every photo gets a saved spot
-    tabData.photos.forEach(function (photo, i) {
-      getLayout(photo, i);
-    });
-    if (!locked) {
-      tabData.photos.forEach(function (photo, i) {
-        const L = photo.layout;
-
-        const polaroid = document.createElement("div");
-        polaroid.className = "polaroid";
-        polaroid.style.setProperty("--i", i);
-        polaroid._L = L;
-        applyLayout(polaroid, L);
-
-
-        const img = document.createElement("img");
-        img.src = photo.src;
-        img.draggable = false;
-
-        const caption = document.createElement("p");
-        caption.textContent = photo.caption;
-        polaroid.addEventListener("contextmenu", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          showMenu(e.clientX, e.clientY, index, i, caption);
-        });
-        caption.addEventListener("dblclick", function () {
-          editCaption(caption, index, i);
-        });
-
-
-        polaroid.appendChild(img);
-        polaroid.appendChild(caption);
-        makeInteractive(polaroid, L);
-        board.appendChild(polaroid);
-      });
-    }
-
-    page.appendChild(board);
-    if (locked) {
-      const n = tabData.photos.length;
-      const cover = document.createElement("div");
-      cover.className = "page-lock";
-      cover.innerHTML =
-        '<div class="lock-card">' +
-          "<h2>frozen</h2>" +
-          "<p>this moment opens on<br><strong></strong></p>" +
-          "<p>" + n + " photo" + (n === 1 ? "" : "s") + " inside</p>" +
-          '<div class="countdown"></div>' +
-        "</div>";
-      cover.querySelector("strong").textContent =
-        new Date(tabData.sealedUntil).toLocaleString();
-      const cd = cover.querySelector(".countdown");
-      cd.dataset.until = tabData.sealedUntil;
-      cd.textContent = formatLeft(tabData.sealedUntil - Date.now());
-      page.appendChild(cover);
-    }
-    if (tabData.thawPending) {
-      const cover = document.createElement("div");
-      cover.className = "page-lock";
-      cover.innerHTML =
-        '<div class="lock-card">' +
-          "<h2>it's time!</h2>" +
-          "<p>this moment has thawed.<br>see what you froze.</p>" +
-          "<button>open this moment</button>" +
-        "</div>";
-      cover.querySelector("button").addEventListener("click", function () {
-        tabData.thawPending = false;
-        save();
-        render();
-      });
-      page.appendChild(cover);
-    }
-
-    pagesEl.appendChild(page);
+  state.tabs.forEach((tabData, index) => {
+    tabList.appendChild(buildTab(tabData, index));
+    pagesEl.appendChild(buildPage(tabData, index));
   });
-  document.querySelectorAll(".page.active .polaroid").forEach(function (p) {
+
+  // now that the page is on screen, make sure every photo fits inside it
+  document.querySelectorAll(".page.active .polaroid").forEach((p) => {
     if (!p._L) return;
     clampLayout(p, p._L, p.parentElement);
     applyLayout(p, p._L);
   });
 }
 
+
+/* ---------- 11. Adding photos ---------- */
+
+// downscale a photo so it fits comfortably in localStorage
 function shrinkImage(file, callback) {
   const reader = new FileReader();
-  reader.onload = function (event) {
+  reader.onload = (event) => {
     const img = new Image();
-    img.onload = function () {
-      const maxSize = 450;
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+    img.onload = () => {
+      const scale = Math.min(1, MAX_IMAGE_SIZE / Math.max(img.width, img.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
-
 
       const ctx = canvas.getContext("2d");
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-
-      callback(canvas.toDataURL("image/jpeg", 0.75));
+      callback(canvas.toDataURL("image/jpeg", JPEG_QUALITY));
     };
     img.src = event.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-
-addButton.addEventListener("click", function () {
+function addPhoto() {
   const tab = state.tabs[state.active];
   if (isTabLocked(tab)) {
-    alert('"' + tab.name + '" is sealed until ' +
-          new Date(tab.sealedUntil).toLocaleString() +
-          ". Switch to another tab to add photos.");
+    alert(`"${tab.name}" is sealed until ${formatDate(tab.sealedUntil)}. ` +
+          "Switch to another tab to add photos.");
     return;
   }
 
@@ -684,24 +759,33 @@ addButton.addEventListener("click", function () {
     return;
   }
 
-  shrinkImage(file, function (dataUrl) {
-    tab.photos.push({
-      src: dataUrl,
-      caption: captionInput.value
-    });
+  shrinkImage(file, (dataUrl) => {
+    tab.photos.push({ src: dataUrl, caption: captionInput.value });
     save();
     render();
     captionInput.value = "";
   });
+}
+
+
+/* ---------- 12. Event wiring and startup ---------- */
+
+addButton.addEventListener("click", addPhoto);
+newTabButton.addEventListener("click", addTab);
+sealButton.addEventListener("click", sealActiveTab);
+
+// clicking anywhere that isn't a photo deselects it
+document.addEventListener("pointerdown", (e) => {
+  if (!e.target.closest(".polaroid")) deselectPolaroid();
 });
-newTabButton.addEventListener("click", function () {
-  const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
-  if (!name) return;
-  const oldPage = pagesEl.querySelector(".page.active");
-  state.tabs.push({ name: name, photos: [], sealedUntil: null });
-  state.active = state.tabs.length - 1;
-  save();
-  render();
-  flip(oldPage);
+
+// close the right-click menu
+document.addEventListener("click", closeMenu);
+document.addEventListener("contextmenu", closeMenu);
+window.addEventListener("scroll", closeMenu);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeMenu();
 });
+
+setInterval(tick, 1000);
 render();

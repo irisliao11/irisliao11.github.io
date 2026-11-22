@@ -1,5 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap");
+/* ==========================================================
+   Time capsule styles
+   (style.css and notebook.css merged into one file)
+   ========================================================== */
 
 :root {
     --main: #2b4162;
@@ -13,7 +15,15 @@
 
     --heading-font: "Gochi Hand", cursive;
     --body-font: "Nunito", sans-serif;
+
+    /* dotted-notebook paper */
+    --dot-color: #b8c4d6;
+    --dot-size: 1.5px;
+    --dot-gap: 24px;
 }
+
+
+/* ---------- Base ---------- */
 
 body {
     margin: 0;
@@ -38,7 +48,8 @@ h2 {
     color: var(--main);
 }
 
-button {
+button,
+input[type="file"]::file-selector-button {
     background: var(--main);
     color: var(--light);
     border: 2px solid var(--dark);
@@ -48,9 +59,15 @@ button {
     font-size: 18px;
     cursor: pointer;
 }
-button:hover {
+
+button:hover,
+input[type="file"]::file-selector-button:hover {
     background: var(--secondary);
     color: var(--dark);
+}
+
+input[type="file"]::file-selector-button {
+    margin-right: 12px;
 }
 
 input[type="text"] {
@@ -62,24 +79,29 @@ input[type="text"] {
     width: 260px;
 }
 
-input[type="file"]::file-selector-button {
-    background: var(--main);
-    color: var(--light);
-    border: 2px solid var(--dark);
-    border-radius: 8px;
-    padding: 8px 16px;
-    margin-right: 12px;
-    font-family: var(--heading-font);
-    font-size: 18px;
-    cursor: pointer;
-}
-input[type="file"]::file-selector-button:hover {
-    background: var(--secondary);
-    color: var(--dark);
-}
+
+/* ---------- Page layout and top bar ---------- */
 
 .content {
-    padding: 0 24px;
+    position: relative;
+    padding: 0 24px 0 0;
+}
+
+.corner {
+    position: absolute;
+    top: 28px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.corner-left  { left: 16px; }
+.corner-right { right: 16px; }
+
+.bar-label {
+    font-family: var(--heading-font);
+    font-size: 20px;
+    color: var(--main);
 }
 
 .topbar {
@@ -89,6 +111,14 @@ input[type="file"]::file-selector-button:hover {
     align-items: center;
     justify-content: center;
     flex-wrap: wrap;
+}
+
+.bar-center {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
 }
 
 .desk {
@@ -104,6 +134,9 @@ input[type="file"]::file-selector-button:hover {
     min-width: 0;
 }
 
+
+/* ---------- Side tabs ---------- */
+
 #tabList {
     display: flex;
     flex-direction: column;
@@ -118,8 +151,14 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .tab {
-    width: 130px;
-    padding: 14px 24px 14px 14px;
+    position: relative;
+    z-index: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    width: 150px;
+    padding: 14px 28px 14px 14px;
     border: 2px solid var(--dark);
     border-right: none;
     border-radius: 14px 0 0 14px;
@@ -130,6 +169,7 @@ input[type="file"]::file-selector-button:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--dark);
+    cursor: pointer;
     transition: transform 0.15s;
 }
 .tab:hover  { transform: translateX(-8px); }
@@ -141,69 +181,112 @@ input[type="file"]::file-selector-button:hover {
 .tab:nth-child(4n+3) { background: #90e0ef; }
 .tab:nth-child(4n+4) { background: #0077b6; }
 
+.tab-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-lock {
+    margin-right: 4px;
+    font-size: 14px;
+}
+
+.tab-edit,
+.tab-delete {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    line-height: 1;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.12);
+    color: var(--dark);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.tab-edit   { font-size: 13px; }
+.tab-delete { font-size: 16px; }
+
+.tab:hover .tab-edit,
+.tab:hover .tab-delete,
+.tab.active .tab-edit,
+.tab.active .tab-delete {
+    opacity: 1;
+}
+
+.tab-edit:hover   { background: var(--secondary); }
+.tab-delete:hover { background: #e5534b; color: white; }
+
+
+/* ---------- Notebook page ---------- */
+
 .page {
     display: none;
-}
-.page.active {
-    display: block;
-}
-
-.page {
-    --paper: #fbfaf6;
-    --paper-edge: #ade8f4;
-    --crease: #d6cfbb;
-    --crease-shade: #e6e0cf;
-
     position: relative;
-    z-index: 1;                /* book paints OVER the tabs */
-    max-width: 1000px;
-    min-height: 70vh;
+    z-index: 1;                 /* the book paints over the tabs */
     box-sizing: border-box;
+    max-width: 1000px;
+    height: max(760px, 85vh);
+    overflow: hidden;
+    margin: 0 0 60px;
     padding: 36px 56px 48px;
 
     border: 16px solid var(--main);
     border-radius: 15px;
 
-    background-color: #fffdf8;
-    background-image: linear-gradient(
-    to right,
-    var(--paper-edge) 0%,
-    var(--paper) 44%,
-    var(--crease-shade) 49.5%,
-    var(--crease) 50%,
-    var(--crease-shade) 50.5%,
-    var(--paper) 56%,
-    var(--paper-edge) 100%
-    );
+    background-color: #fffdf6;
+    background-image:
+        linear-gradient(
+            to right,
+            transparent 44%,
+            rgba(0, 0, 0, 0.05) 49%,
+            rgba(0, 0, 0, 0.14) 50%,
+            rgba(0, 0, 0, 0.05) 51%,
+            transparent 56%
+        ),
+        radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+    background-size: 100% 100%, var(--dot-gap) var(--dot-gap);
+    background-position: 0 0, 12px 12px;
+
     box-shadow:
-    inset 10px 0 8px -8px rgba(0, 0, 0, 0.25),
-    inset -10px 0 8px -8px rgba(0, 0, 0, 0.25),
-    8px 14px 28px rgba(0, 0, 0, 0.35);
+        inset 10px 0 8px -8px rgba(0, 0, 0, 0.25),
+        inset -10px 0 8px -8px rgba(0, 0, 0, 0.25),
+        8px 14px 28px rgba(0, 0, 0, 0.35);
 }
 
+.page.active {
+    display: block;
+}
+
+/* title "sticky note" */
 .page h2 {
+    display: inline-block;
     margin: 0 0 8px;
+    padding: 4px 18px;
+    background: var(--secondary);
+    color: var(--dark);
     line-height: 1.3;
     text-align: left;
+    transform: rotate(-2deg);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
-@keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
 
+/* ---------- Polaroids ---------- */
+
+/* the board fills the page; polaroids are positioned inside it by script.js */
 .board {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 90px;
-    row-gap: 30px;
-    justify-items: center;
-    align-items: start;
-    padding-top: 24px;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
 }
 
 .polaroid {
-    position: relative;
+    position: absolute;
     display: block;
     width: 220px;
     margin: 0;
@@ -211,31 +294,30 @@ input[type="file"]::file-selector-button:hover {
     background: white;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
     text-align: center;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
     transition: transform 0.2s;
     animation: polaroidIn 0.6s ease-out backwards;
     animation-delay: calc(var(--i, 0) * 0.1s);
 }
 
-.polaroid img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-}
-
-.polaroid p {
-    margin: 8px 0 0;
-    font-family: var(--heading-font);
-    font-size: 22px;
-    line-height: 1.3;
-}
-
-.polaroid:nth-child(odd)  { transform: rotate(-3deg); }
-.polaroid:nth-child(even) { transform: rotate(3deg); }
-
 .polaroid:hover {
-    transform: rotate(0deg) scale(1.08);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
+.polaroid.dragging {
+    transition: none;
+    cursor: grabbing;
+}
+
+.polaroid.selected {
+    outline: 2px dashed var(--secondary);
+    outline-offset: 6px;
+}
+
+/* strip of tape */
 .polaroid::before {
     content: "";
     position: absolute;
@@ -247,52 +329,204 @@ input[type="file"]::file-selector-button:hover {
     background: rgba(104, 216, 244, 0.55);
 }
 
+.polaroid img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    -webkit-user-drag: none;
+}
+
+.polaroid p {
+    margin: 8px 0 0;
+    font-family: var(--heading-font);
+    font-size: 22px;
+    line-height: 1.3;
+}
+
+.polaroid .caption-input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 8px 0 0;
+    padding: 2px 6px;
+    border: 2px dashed var(--main);
+    border-radius: 6px;
+    background: #fffdf6;
+    font-family: var(--heading-font);
+    font-size: 22px;
+    line-height: 1.3;
+    text-align: center;
+    color: var(--dark);
+    user-select: text;
+    -webkit-user-select: text;
+}
+.polaroid .caption-input:focus {
+    outline: none;
+    border-style: solid;
+    border-color: var(--secondary);
+}
+
+/* rotate handles (corners) and the +/- resize buttons, shown when selected */
+.rot-handle {
+    display: none;
+    position: absolute;
+    z-index: 3;
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 2px solid var(--main);
+    border-radius: 50%;
+    background: white;
+    cursor: grab;
+    touch-action: none;
+    /* --s is the photo's scale; dividing keeps the handle a constant size */
+    transform: translate(-50%, -50%) scale(calc(1 / var(--s, 1)));
+}
+.rot-handle:hover { background: var(--secondary); }
+.rot-handle.tl { left: 0;    top: 0; }
+.rot-handle.tr { left: 100%; top: 0; }
+.rot-handle.bl { left: 0;    top: 100%; }
+.rot-handle.br { left: 100%; top: 100%; }
+
+.polaroid-tools {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    z-index: 3;
+    gap: 8px;
+    margin-top: 16px;
+    transform: translateX(-50%) scale(calc(1 / var(--s, 1)));
+    transform-origin: top center;
+}
+.polaroid-tools button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-family: var(--body-font);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.polaroid.selected .rot-handle  { display: block; }
+.polaroid.selected .polaroid-tools { display: flex; }
+
+
+/* ---------- Right-click menu ---------- */
+
+.photo-menu {
+    position: fixed;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    padding: 4px;
+    background: white;
+    border: 2px solid var(--dark);
+    border-radius: 10px;
+    box-shadow: 4px 4px 0 rgba(40, 41, 52, 0.2);
+}
+.photo-menu button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--dark);
+    font-size: 18px;
+    text-align: left;
+}
+.photo-menu button:hover {
+    background: var(--secondary);
+    color: var(--dark);
+}
+.photo-menu button.danger:hover {
+    background: #e5534b;
+    color: white;
+}
+
+
+/* ---------- Sealed / thawed overlay ---------- */
+
+.page-lock {
+    position: absolute;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(160deg, rgba(235, 246, 254, 0.97), rgba(219, 235, 250, 0.97));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.lock-card {
+    padding: 24px 32px;
+    background: white;
+    border: 3px solid var(--main);
+    border-radius: 24px;
+    box-shadow: 0 8px 24px rgba(43, 65, 98, 0.2);
+    text-align: center;
+}
+
+/* undo the sticky-note look of .page h2 */
+.page .lock-card h2 {
+    display: block;
+    margin: 0 0 8px;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    transform: none;
+    text-align: left;
+}
+
+.lock-card p {
+    margin: 6px 0;
+    font-size: 18px;
+    line-height: 1.5;
+}
+
+.lock-card .countdown {
+    margin-top: 12px;
+    font-family: var(--heading-font);
+    font-size: 30px;
+    color: var(--main);
+}
+
+.lock-card button {
+    margin-top: 12px;
+}
+
+
+/* ---------- Page-flip animation (built in script.js) ---------- */
+
+.flip-wrap {
+    contain: layout paint;
+}
+
+
+/* ---------- Animations ---------- */
+
 @keyframes polaroidIn {
     from { opacity: 0; translate: 0 20px; }
     to   { opacity: 1; translate: 0 0; }
 }
 
+
+/* ---------- Small screens ---------- */
+
 @media (max-width: 700px) {
-    .page { background-image: none; padding: 24px; }
-    .board { grid-template-columns: 1fr; }
     #tabList { width: 90px; }
-    .tab { width: 90px; font-size: 14px; padding: 10px 18px 10px 8px; }
-}
+    .tab     { font-size: 14px; }
 
-/* page flip: clipped to the paper so the cover, spine and tabs never move */
-.leaf-wrap {
-    position: absolute;
-    inset: 0;               /* sits inside your 16px cover border */
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 5;
-}
-
-/* the right-hand page, hinged at the spine, that turns over */
-.page-leaf {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    right: 0;
-    background-color: var(--paper);
-    background-image:
-        radial-gradient(#b8c4d6 1.5px, transparent 1.5px),
-        linear-gradient(
-            to right,
-            var(--crease) 0%,
-            var(--crease-shade) 1%,
-            var(--paper) 12%,
-            var(--paper-edge) 100%
-        );
-    background-size: 24px 24px, 100% 100%;
-    transform-origin: left center;
-    box-shadow: -4px 0 14px rgba(0, 0, 0, 0.3);
-    animation: flipLeaf 0.7s ease-in-out forwards;
-}
-
-@keyframes flipLeaf {
-    0%   { transform: perspective(1800px) rotateY(0deg);    opacity: 1; }
-    85%  { opacity: 1; }
-    100% { transform: perspective(1800px) rotateY(-180deg); opacity: 0; }
+    /* no center crease on a single column */
+    .page {
+        background-image:
+            radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+        background-size: var(--dot-gap) var(--dot-gap);
+        background-position: 12px 12px;
+    }
 }
