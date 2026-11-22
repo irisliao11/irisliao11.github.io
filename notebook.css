@@ -229,19 +229,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(214, 238, 255, 0.6);
-    backdrop-filter: blur(10px) saturate(1.2);
-    -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    background: linear-gradient(160deg, #e9f5fd, #d6ecfb);   /* looks frosted, costs nothing */
 }
-
 .lock-card {
     padding: 28px 40px;
     max-width: 380px;
     text-align: center;
-    background: rgba(255, 255, 255, 0.88);
+    background: rgba(255, 255, 255, 0.92);
     border: 3px solid var(--main);
     border-radius: 20px;
-    box-shadow: 0 0 40px rgba(104, 216, 244, 0.7), 8px 12px 28px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
 }
 .lock-card h2 {
     display: block;
@@ -261,3 +258,48 @@
 }
 
 .tab-lock { margin-right: 2px; }
+.content {
+    position: relative;
+}
+
+.corner {
+    position: absolute;
+    top: 14px;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.corner-left  { left: 20px; }
+.corner-right { right: 20px; }
+
+.corner button,
+.corner input {
+    white-space: nowrap;
+}
+
+.bar-label {
+    font-family: var(--heading-font);
+    font-size: 18px;
+    color: var(--main);
+    white-space: nowrap;
+}
+.topbar {
+    display: flex;
+    justify-content: center;
+    padding: 8px 16px 24px;
+}
+.bar-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+@media (max-width: 1100px) {
+    .corner {
+        position: static;
+        justify-content: center;
+        margin: 12px 0 0;
+    }
+}
