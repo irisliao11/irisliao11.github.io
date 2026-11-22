@@ -14,6 +14,7 @@
   </style>
 </head>
 <body id = "homepage">
+  <div id="snowContainer" aria-hidden="true"></div>
   <main class="home">
     <h1>time capsule</h1>
     <p>freeze your moments and open them later.</p>
@@ -52,5 +53,23 @@
       list.appendChild(li);
     });
   </script>
+  <script>
+    const snowBox = document.getElementById("snowContainer");
+    const flakes = ["❄", "❅", "❆", "•"];
+    setInterval(() => {
+      const f = document.createElement("div");
+      f.className = "snowflake";
+      f.textContent = flakes[Math.floor(Math.random() * flakes.length)];
+      const dur = 6 + Math.random() * 7;
+      f.style.left = Math.random() * 100 + "vw";
+      f.style.fontSize = (12 + Math.random() * 14) + "px";
+      f.style.opacity = 0.5 + Math.random() * 0.5;
+      f.style.animationDuration = dur + "s";
+      f.style.setProperty("--sway", ((Math.random() - 0.5) * 60) + "px");
+      snowBox.appendChild(f);
+      setTimeout(() => f.remove(), dur * 1000);
+    }, 350);
+  </script>
+</body>
 </body>
 </html>

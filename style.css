@@ -589,3 +589,31 @@ input[type="text"] {
     background-position: center;
     background-color: #F8FAFC;
 }
+#snowContainer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.snowflake {
+    position: absolute;
+    top: -30px;
+    color: #dbecef;
+    text-shadow: 0 0 4px rgba(255, 255, 255, 0.9);
+    user-select: none;
+    animation: snowfall linear forwards;
+}
+
+@keyframes snowfall {
+    0% {
+        transform: translateY(0) translateX(0) rotate(0deg);
+    }
+    50% {
+        transform: translateY(50vh) translateX(var(--sway, 20px)) rotate(180deg);
+    }
+    100% {
+        transform: translateY(105vh) translateX(0) rotate(360deg);
+    }
+}
