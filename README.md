@@ -3,9 +3,10 @@
 a scrapbook-style photo notebook where you freeze moments and open them later, made for anyone who wants to save memories
 
 **live demo:** https://kaelynhe.itch.io/digital-time-capsule-scrapbook
+or https://irisliao11.github.io/index.html
 **built by:** kaelyn he (@kaelynhe), iris liao (@irisliao11)
 
-![screenshot of the project](screenshot.png)
+<img width="2940" height="1546" alt="image" src="https://github.com/user-attachments/assets/29687808-060f-4305-9e99-f0a7f3e55651" />
 
 ## how do you use it?
 
@@ -23,17 +24,15 @@ a scrapbook-style photo notebook where you freeze moments and open them later, m
 
 ## run it yourself
 
-1. clone the repo
-2. install dependencies: `…`
-3. copy `.env.example` to `.env` and fill in: `…`
-4. start it: `…`
+1. go to https://irisliao11.github.io/index.html
+2. click on "open my capsule" to start!
+3. make memories :)
 
 ## what was hard, and how we fixed it
 
-- flipping pages when one page is frozen caused a lag (so e looked through the code and asked claude but it didn't work so we will go through it in the future)
+- flipping pages when one page is frozen caused a lag (so we looked through the code and asked claude but it didn't work so we will go through it in the future)
 
 ## what's next
 
 - send automated message when capsule timer runs out
 - add customized music to match each moment
-
