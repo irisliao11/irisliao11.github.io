@@ -31,6 +31,13 @@ h1 {
     color: var(--main);
     text-align: center;
 }
+h1 a{
+    color: inherit;
+    text-decoration: none;
+}
+h1 a:hover {
+    text-decoration: underline;
+}
 
 h2 {
     font-family: var(--heading-font);
@@ -481,4 +488,11 @@ input[type="text"] {
         background-size: var(--dot-gap) var(--dot-gap);
         background-position: 12px 12px;
     }
+}
+
+#homepage {
+    background-image: url(icicle.jpeg);
+    background-size: cover;
+    background-position: center;
+    background-color: #F8FAFC;
 }

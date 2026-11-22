@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>time capsule</title>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gochi+Hand&family=Nunito:wght@400;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    .home { max-width: 600px; margin: 0 auto; padding: 8vh 24px; text-align: center; }
+    .home ul { list-style: none; padding: 0; }
+    .home li { padding: 6px 0; }
+  </style>
+</head>
+<body id = "homepage">
+  <main class="home">
+    <h1>time capsule</h1>
+    <p>freeze your moments and open them later.</p>
+
+    <button id="open">open my capsule</button>
+
+    <h2>your moments</h2>
+    <ul id="moments"></ul>
+  </main>
+
+  <script>
+    document.getElementById("open").addEventListener("click", function () {
+      location.href = "index.html";
+    });
+    const list = document.getElementById("moments");
+    let tabs = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem("timeCapsule"));
+      if (saved && saved.tabs) tabs = saved.tabs;
+    } catch (e) {}
+
+    if (!tabs.length) {
+      const li = document.createElement("li");
+      li.textContent = "no moments yet";
+      list.appendChild(li);
+    }
+
+    tabs.forEach(function (tab) {
+      const n = tab.photos.length;
+      let text = tab.name + " · " + n + " photo" + (n === 1 ? "" : "s");
+      if (tab.sealedUntil && Date.now() < tab.sealedUntil) {
+        text += " · sealed until " + new Date(tab.sealedUntil).toLocaleString();
+      }
+      const li = document.createElement("li");
+      li.textContent = text;
+      list.appendChild(li);
+    });
+  </script>
+</body>
+</html>
