@@ -1,6 +1,5 @@
 const STORAGE_KEY = "timeCapsule";
 
-
 const photoInput = document.getElementById("photo");
 const captionInput = document.getElementById("caption");
 const addButton = document.getElementById("add");
@@ -8,6 +7,8 @@ const newTabButton = document.getElementById("newTab");
 const tabList = document.getElementById("tabList");
 const pagesEl = document.getElementById("pages");
 const pageTemplate = document.getElementById("pageTemplate");
+const openDateInput = document.getElementById("openDate");
+const sealButton = document.getElementById("seal");
 
 
 function load() {
@@ -29,8 +30,9 @@ function save() {
 
 let state = load() || {
   active: 0,
-  tabs: [{ name: "Moment 1", photos: [] }]
+  tabs: [{ name: "Moment 1", photos: [], sealedUntil: null }]
 };
+delete state.sealedUntil;
 function ghost(page, showRight) {
   const c = page.cloneNode(true);
   c.querySelectorAll(".flip-wrap").forEach(function (el) { el.remove(); });
@@ -45,8 +47,6 @@ function ghost(page, showRight) {
   return c;
 }
 
-
-// one side of the turning page
 function face(extra) {
   const f = document.createElement("div");
   Object.assign(f.style, {
@@ -71,6 +71,7 @@ function flip(oldPage, backward) {
     position: "absolute", inset: "0", perspective: "3000px",
     pointerEvents: "none", zIndex: "5"
   });
+
   const cover = document.createElement("div");
   Object.assign(cover.style, {
     position: "absolute", top: "0", bottom: "0",
@@ -114,8 +115,74 @@ function flip(oldPage, backward) {
   anim.onfinish = function () { wrap.remove(); };
 }
 
+function isTabLocked(tab) {
+  return !!tab.sealedUntil && Date.now() < tab.sealedUntil;
+}
+
+function formatLeft(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return d + "d " + h + "h " + m + "m " + (s % 60) + "s";
+}
+function tick() {
+  const now = Date.now();
+  let thawed = false;
+
+  state.tabs.forEach(function (t) {
+    if (t.sealedUntil && now >= t.sealedUntil) {
+      t.sealedUntil = null;
+      t.thawPending = true;      // show the "it's time!" card once
+      thawed = true;
+    }
+  });
+
+  if (thawed) {
+    save();
+    render();
+    return;
+  }
+
+  document.querySelectorAll(".countdown").forEach(function (el) {
+    el.textContent = formatLeft(Number(el.dataset.until) - now);
+  });
+}
+setInterval(tick, 1000);
+
+sealButton.addEventListener("click", function () {
+  const tab = state.tabs[state.active];
+
+  if (isTabLocked(tab)) {
+    alert('"' + tab.name + '" is already sealed.');
+    return;
+  }
+  if (!openDateInput.value) {
+    alert("Pick an open date first!");
+    return;
+  }
+  const when = new Date(openDateInput.value).getTime();
+  if (when <= Date.now()) {
+    alert("Pick a date in the future!");
+    return;
+  }
+  if (!confirm('Seal "' + tab.name + '" until ' + new Date(when).toLocaleString() +
+               "? You won't be able to change it until then.")) return;
+
+  tab.sealedUntil = when;
+  tab.thawPending = false;
+  save();
+  render();
+});
+
 function deleteTab(index) {
   const tab = state.tabs[index];
+
+  if (isTabLocked(tab)) {
+    alert('"' + tab.name + '" is sealed until ' +
+          new Date(tab.sealedUntil).toLocaleString() + ", so it can't be deleted.");
+    return;
+  }
   if (state.tabs.length === 1) {
     alert("You need at least one tab!");
     return;
@@ -146,7 +213,6 @@ function renameTab(index) {
   render();
 }
 
-// ---------- new: photo menu (right-click) ----------
 let menu = null;
 
 function closeMenu() {
@@ -155,8 +221,15 @@ function closeMenu() {
     menu = null;
   }
 }
-
-// the small menu that appears where you right-click
+function deletePhoto(tabIndex, photoIndex) {
+  if (isTabLocked(state.tabs[tabIndex])) return;
+  state.tabs[tabIndex].photos.splice(photoIndex, 1);
+  save();
+  render();
+  document.querySelectorAll(".polaroid").forEach(function (p) {
+    p.style.animation = "none";
+  });
+}
 function showMenu(x, y, tabIndex, photoIndex, captionEl) {
   closeMenu();
 
@@ -175,25 +248,15 @@ function showMenu(x, y, tabIndex, photoIndex, captionEl) {
   deleteBtn.textContent = "delete photo";
   deleteBtn.addEventListener("click", function () {
     closeMenu();
-    state.tabs[tabIndex].photos.splice(photoIndex, 1);
-    save();
-    render();
-    // keep the remaining photos from fading in again
-    document.querySelectorAll(".polaroid").forEach(function (p) {
-      p.style.animation = "none";
-    });
+    deletePhoto(tabIndex, photoIndex);
   });
 
   menu.append(editBtn, deleteBtn);
   document.body.appendChild(menu);
-
-  // keep the menu on screen
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(x, window.innerWidth - r.width - 8) + "px";
   menu.style.top = Math.min(y, window.innerHeight - r.height - 8) + "px";
 }
-
-// swaps the caption for a text box right on the polaroid
 function editCaption(captionEl, tabIndex, photoIndex) {
   const photo = state.tabs[tabIndex].photos[photoIndex];
 
@@ -225,21 +288,20 @@ function editCaption(captionEl, tabIndex, photoIndex) {
     finish(true);
   });
 }
-
-// close the menu when you click elsewhere, scroll, or press Esc
 document.addEventListener("click", closeMenu);
 document.addEventListener("contextmenu", closeMenu);
 window.addEventListener("scroll", closeMenu);
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") closeMenu();
 });
-// ---------- end of new code ----------
 
 function render() {
   tabList.innerHTML = "";
   pagesEl.innerHTML = "";
+
   state.tabs.forEach(function (tabData, index) {
     const isActive = index === state.active;
+    const locked = isTabLocked(tabData);
     const tab = document.createElement("div");
     tab.className = "tab" + (isActive ? " active" : "");
     tab.title = "Double-click to rename";
@@ -247,6 +309,12 @@ function render() {
     const label = document.createElement("span");
     label.className = "tab-label";
     label.textContent = tabData.name;
+    if (locked) {
+      const lockIcon = document.createElement("span");
+      lockIcon.className = "tab-lock";
+      lockIcon.textContent = "🔒";
+      label.prepend(lockIcon);
+    }
 
     const edit = document.createElement("button");
     edit.className = "tab-edit";
@@ -293,61 +361,83 @@ function render() {
 
     const board = document.createElement("div");
     board.className = "board";
+    if (!locked) {
+      tabData.photos.forEach(function (photo, i) {
+        const polaroid = document.createElement("div");
+        polaroid.className = "polaroid";
+        polaroid.style.setProperty("--i", i);
 
 
-    tabData.photos.forEach(function (photo, i) {
-      const polaroid = document.createElement("div");
-      polaroid.className = "polaroid";
-      polaroid.style.setProperty("--i", i);
+        const img = document.createElement("img");
+        img.src = photo.src;
 
 
-      const img = document.createElement("img");
-      img.src = photo.src;
-
-
-      const caption = document.createElement("p");
-      caption.textContent = photo.caption;
-
-      // new: right-click a photo for the menu
-      polaroid.addEventListener("contextmenu", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        showMenu(e.clientX, e.clientY, index, i, caption);
-      });
-
-      // new: double-click a caption to edit it
-      caption.addEventListener("dblclick", function () {
-        editCaption(caption, index, i);
-      });
-
-
-      const photoDel = document.createElement("button");
-      photoDel.className = "photo-delete";
-      photoDel.textContent = "×";
-      photoDel.title = "Delete photo";
-      photoDel.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (!confirm("Delete this photo?")) return;
-        state.tabs[index].photos.splice(i, 1);
-        save();
-        render();
-        document.querySelectorAll(".polaroid").forEach(function (p) {
-          p.style.animation = "none";
+        const caption = document.createElement("p");
+        caption.textContent = photo.caption;
+        polaroid.addEventListener("contextmenu", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          showMenu(e.clientX, e.clientY, index, i, caption);
         });
+        caption.addEventListener("dblclick", function () {
+          editCaption(caption, index, i);
+        });
+        const photoDel = document.createElement("button");
+        photoDel.className = "photo-delete";
+        photoDel.textContent = "×";
+        photoDel.title = "Delete photo";
+        photoDel.addEventListener("click", function (e) {
+          e.stopPropagation();
+          if (!confirm("Delete this photo?")) return;
+          deletePhoto(index, i);
+        });
+
+
+        polaroid.appendChild(img);
+        polaroid.appendChild(caption);
+        polaroid.appendChild(photoDel);
+        board.appendChild(polaroid);
       });
-
-      polaroid.appendChild(img);
-      polaroid.appendChild(caption);
-      polaroid.appendChild(photoDel);
-      board.appendChild(polaroid);
-    });
-
+    }
 
     page.appendChild(board);
+    if (locked) {
+      const n = tabData.photos.length;
+      const cover = document.createElement("div");
+      cover.className = "page-lock";
+      cover.innerHTML =
+        '<div class="lock-card">' +
+          "<h2>frozen</h2>" +
+          "<p>this moment opens on<br><strong></strong></p>" +
+          "<p>" + n + " photo" + (n === 1 ? "" : "s") + " inside</p>" +
+          '<div class="countdown"></div>' +
+        "</div>";
+      cover.querySelector("strong").textContent =
+        new Date(tabData.sealedUntil).toLocaleString();
+      const cd = cover.querySelector(".countdown");
+      cd.dataset.until = tabData.sealedUntil;
+      cd.textContent = formatLeft(tabData.sealedUntil - Date.now());
+      page.appendChild(cover);
+    }    if (tabData.thawPending) {
+      const cover = document.createElement("div");
+      cover.className = "page-lock";
+      cover.innerHTML =
+        '<div class="lock-card">' +
+          "<h2>it's time!</h2>" +
+          "<p>this moment has thawed.<br>see what you froze.</p>" +
+          "<button>open this moment</button>" +
+        "</div>";
+      cover.querySelector("button").addEventListener("click", function () {
+        tabData.thawPending = false;
+        save();
+        render();
+      });
+      page.appendChild(cover);
+    }
+
     pagesEl.appendChild(page);
   });
 }
-
 
 function shrinkImage(file, callback) {
   const reader = new FileReader();
@@ -374,17 +464,23 @@ function shrinkImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
-
 addButton.addEventListener("click", function () {
+  const tab = state.tabs[state.active];
+  if (isTabLocked(tab)) {
+    alert('"' + tab.name + '" is sealed until ' +
+          new Date(tab.sealedUntil).toLocaleString() +
+          ". Switch to another tab to add photos.");
+    return;
+  }
+
   const file = photoInput.files[0];
   if (!file) {
     alert("Pick a photo first!");
     return;
   }
 
-
   shrinkImage(file, function (dataUrl) {
-    state.tabs[state.active].photos.push({
+    tab.photos.push({
       src: dataUrl,
       caption: captionInput.value
     });
@@ -394,18 +490,21 @@ addButton.addEventListener("click", function () {
   });
 });
 
-
 newTabButton.addEventListener("click", function () {
   const name = prompt("Name this moment:", "Moment " + (state.tabs.length + 1));
   if (!name) return;
   const oldPage = pagesEl.querySelector(".page.active");
-  state.tabs.push({ name: name, photos: [] });
+  state.tabs.push({ name: name, photos: [], sealedUntil: null });
   state.active = state.tabs.length - 1;
   save();
   render();
   flip(oldPage);
 });
-
-
-
+document.addEventListener("keydown", function (e) {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "u") {
+    state.tabs[state.active].sealedUntil = null;
+    save();
+    render();
+  }
+});
 render();
