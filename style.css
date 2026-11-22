@@ -584,10 +584,14 @@ input[type="text"] {
 }
 
 #homepage {
+    min-height: 100vh;
+    box-sizing: border-box;
     background-image: url(icicle.jpeg);
     background-size: cover;
     background-position: center;
-    background-color: #F8FAFC;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-color: #f8fafc;
 }
 #snowContainer {
     position: fixed;
